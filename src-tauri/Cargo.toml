@@ -1,0 +1,15 @@
+[package]
+name = "guion-studio"
+version = "0.1.0"
+description = "Una aplicación Local-First para escritores de videojuegos."
+authors = ["you"]
+edition = "2021"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tauri-plugin-sql = { version = "2", features = ["sqlite"] }
