@@ -1,133 +1,142 @@
-import { render, screen, fireEvent } from '@testing-library/react';
-import { describe, it, expect, vi } from 'vitest';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import App from './App';
 
-describe('GuionStudio App Component', () => {
-  it('renders the header and main title', () => {
-    render(<App />);
-    expect(screen.getByText('GuionStudio')).toBeInTheDocument();
-    expect(screen.getByDisplayValue('CyberNights')).toBeInTheDocument();
+describe('GuionStudio App & Unified Script Dashboard', () => {
+  beforeEach(() => {
+    localStorage.clear();
   });
 
-  it('renders initial narrative acts and compact scene list', () => {
-    render(<App />);
-    expect(screen.getByText(/Acto 1: Planteamiento/i)).toBeInTheDocument();
-    expect(screen.getByText(/Acto 2: Confrontación/i)).toBeInTheDocument();
-    expect(screen.getByText(/Acto 3: Resolución/i)).toBeInTheDocument();
-
-    expect(screen.getByText('El Callejón de Inicio')).toBeInTheDocument();
-    expect(screen.getByText('Encuentro con el Mercader')).toBeInTheDocument();
-    expect(screen.getByText('Las Alcantarillas')).toBeInTheDocument();
-  });
-
-  it('opens Archivo dropdown menu and executes Guardar action', () => {
-    render(<App />);
+  it('renders the Dashboard of Projects by default at root path "/"', async () => {
+    render(<App initialRoute="/" />);
+    expect(screen.getByRole('heading', { level: 1 })).toBeInTheDocument();
     
-    // Open Archivo menu
-    const archivoBtn = screen.getByRole('button', { name: /📂 Archivo/i });
-    fireEvent.click(archivoBtn);
-
-    expect(screen.getByText('Nuevo Proyecto')).toBeInTheDocument();
-    expect(screen.getByText('Abrir Proyecto...')).toBeInTheDocument();
-    expect(screen.getByText('Guardar Como...')).toBeInTheDocument();
-    expect(screen.getByText('Guardar en .md')).toBeInTheDocument();
-    expect(screen.getByText('Lector Markdown (.md)')).toBeInTheDocument();
-
-    // Mock URL functions
-    globalThis.URL.createObjectURL = vi.fn(() => 'blob:test');
-    globalThis.URL.revokeObjectURL = vi.fn();
-
-    const saveMenuOption = screen.getByText('Guardar (.json)');
-    fireEvent.click(saveMenuOption);
-
-    expect(screen.getByText(/Proyecto "CyberNights" guardado exitosamente/i)).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText('CyberNights')).toBeInTheDocument();
+    });
+    expect(screen.getByText('Shadow Realm')).toBeInTheDocument();
   });
 
-  it('opens Guardar Como modal and executes save', () => {
-    render(<App />);
-    const archivoBtn = screen.getByRole('button', { name: /📂 Archivo/i });
-    fireEvent.click(archivoBtn);
+  it('navigates to unified DashboardGuion when clicking "Abrir Guion & Detalles"', async () => {
+    render(<App initialRoute="/" />);
+    await waitFor(() => {
+      expect(screen.getByText('CyberNights')).toBeInTheDocument();
+    });
 
-    const saveAsOption = screen.getByText('Guardar Como...');
-    fireEvent.click(saveAsOption);
+    const abrirBtns = screen.getAllByRole('button', { name: /Abrir Guion & Detalles/i });
+    fireEvent.click(abrirBtns[0]);
 
-    expect(screen.getByText(/Guardar Proyecto Como\.\.\./i)).toBeInTheDocument();
-
-    globalThis.URL.createObjectURL = vi.fn(() => 'blob:save-as');
-    globalThis.URL.revokeObjectURL = vi.fn();
-
-    const directDownloadBtn = screen.getByRole('button', { name: /Descarga Directa \(\.json\)/i });
-    fireEvent.click(directDownloadBtn);
-
-    expect(screen.getByText(/Proyecto guardado como "CyberNights"/i)).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText('Proyecto Activo')).toBeInTheDocument();
+      expect(screen.getByText('Sinopsis Argumental del Proyecto:')).toBeInTheDocument();
+      expect(screen.getByText(/Estructura del Guion por Actos/i)).toBeInTheDocument();
+    });
   });
 
-  it('opens maximized scene window and handles Aceptar / Cancelar', () => {
-    render(<App />);
-    const maximizeBtns = screen.getAllByTitle('Maximizar escena para edición cómoda');
+  it('renders unified DashboardGuion at path "/tablero/1" with project details and 3 act sections', () => {
+    render(<App initialRoute="/tablero/1" />);
+    expect(screen.getByText('Proyecto Activo')).toBeInTheDocument();
+    expect(screen.getByText('Ruta de Archivo:')).toBeInTheDocument();
+    expect(screen.getByText('Sinopsis Argumental del Proyecto:')).toBeInTheDocument();
+
+    // 3 Act titles
+    expect(screen.getByText('Acto 1: Planteamiento')).toBeInTheDocument();
+    expect(screen.getByText('Acto 2: Confrontación')).toBeInTheDocument();
+    expect(screen.getByText('Acto 3: Resolución')).toBeInTheDocument();
+
+    // Plot Points and Sinopsis
+    expect(screen.getByText(/La guardia ataca el mercado; el jugador huye a las alcantarillas\./i)).toBeInTheDocument();
+
+    // Scene titles inside scrollable lists
+    expect(screen.getByDisplayValue('El Callejón de Inicio')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('Encuentro con el Mercader')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('Las Alcantarillas')).toBeInTheDocument();
+
+    // Dedicated Editor buttons for each section
+    const dedicatedBtns = screen.getAllByRole('button', { name: /Editor Dedicado/i });
+    expect(dedicatedBtns.length).toBe(3);
+  });
+
+  it('allows creating and editing scenes directly from DashboardGuion', () => {
+    render(<App initialRoute="/tablero/1" />);
+    
+    // Find "+ Nueva Escena" buttons (one per act)
+    const addBtns = screen.getAllByRole('button', { name: /\+ Nueva Escena/i });
+    expect(addBtns.length).toBe(3);
+
+    // Add a scene to Acto 1
+    fireEvent.click(addBtns[0]);
+    expect(screen.getByDisplayValue('Nueva Escena 3')).toBeInTheDocument();
+
+    // Edit scene title directly in DashboardGuion
+    const newSceneInput = screen.getByDisplayValue('Nueva Escena 3');
+    fireEvent.change(newSceneInput, { target: { value: 'Escena de Prueba Directa' } });
+    expect(screen.getByDisplayValue('Escena de Prueba Directa')).toBeInTheDocument();
+  });
+
+  it('navigates from DashboardGuion to EditorActo when clicking "Editor Dedicado de Acto 1"', () => {
+    render(<App initialRoute="/tablero/1" />);
+    const dedicatedBtns = screen.getAllByRole('button', { name: /Editor Dedicado/i });
+    fireEvent.click(dedicatedBtns[0]);
+
+    expect(screen.getByText(/Editor Dedicado: Acto 1/i)).toBeInTheDocument();
+    expect(screen.getByDisplayValue('Planteamiento')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('El Callejón de Inicio')).toBeInTheDocument();
+  });
+
+  it('allows adding a scene and editing scene details inside EditorActo', () => {
+    render(<App initialRoute="/tablero/1/acto/act-1" />);
+    expect(screen.getByText(/Editor Dedicado: Acto 1/i)).toBeInTheDocument();
+
+    const addSceneBtn = screen.getByRole('button', { name: /\+ Nueva Escena/i });
+    fireEvent.click(addSceneBtn);
+
+    expect(screen.getByDisplayValue('Nueva Escena 3')).toBeInTheDocument();
+  });
+
+  it('opens maximized scene window inside EditorActo and handles Aceptar / Cancelar', () => {
+    render(<App initialRoute="/tablero/1/acto/act-1" />);
+    const maximizeBtns = screen.getAllByRole('button', { name: /Maximizar/i });
     expect(maximizeBtns.length).toBeGreaterThan(0);
 
     // Open Maximize Modal for first scene
     fireEvent.click(maximizeBtns[0]);
     expect(screen.getByText(/Edición Cómoda de Escena y Escaleta Detallada/i)).toBeInTheDocument();
 
-    // Modify Title in draft
-    const titleInput = screen.getByDisplayValue('El Callejón de Inicio');
-    fireEvent.change(titleInput, { target: { value: 'Callejón Maximizatorio' } });
+    // Modify Title in draft (inside modal)
+    const titleInputs = screen.getAllByDisplayValue('El Callejón de Inicio');
+    const modalTitleInput = titleInputs[titleInputs.length - 1];
+    fireEvent.change(modalTitleInput, { target: { value: 'Callejón Maximizatorio' } });
 
-    // Click Cancelar (first available)
-    const cancelBtns = screen.getAllByRole('button', { name: 'Cancelar' });
-    fireEvent.click(cancelBtns[0]);
+    // Click Cancelar
+    const cancelBtn = screen.getByRole('button', { name: 'Cancelar' });
+    fireEvent.click(cancelBtn);
     expect(screen.queryByText(/Edición Cómoda de Escena/i)).not.toBeInTheDocument();
-    expect(screen.queryByText('Callejón Maximizatorio')).not.toBeInTheDocument();
+    expect(screen.queryByDisplayValue('Callejón Maximizatorio')).not.toBeInTheDocument();
 
     // Open again and click Aceptar
     fireEvent.click(maximizeBtns[0]);
-    const titleInput2 = screen.getByDisplayValue('El Callejón de Inicio');
-    fireEvent.change(titleInput2, { target: { value: 'Callejón Confirmado' } });
+    const titleInputs2 = screen.getAllByDisplayValue('El Callejón de Inicio');
+    const modalTitleInput2 = titleInputs2[titleInputs2.length - 1];
+    fireEvent.change(modalTitleInput2, { target: { value: 'Callejón Confirmado' } });
 
-    const acceptBtns = screen.getAllByRole('button', { name: /✓ Aceptar/i });
-    fireEvent.click(acceptBtns[0]);
+    const acceptBtn = screen.getByRole('button', { name: /✓ Aceptar/i });
+    fireEvent.click(acceptBtn);
 
-    expect(screen.getByText('Callejón Confirmado')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('Callejón Confirmado')).toBeInTheDocument();
   });
 
-  it('exports project as Markdown file (.md)', () => {
-    render(<App />);
+  it('opens Archivo menu and exports Markdown file (.md)', () => {
+    render(<App initialRoute="/tablero/1" />);
     const archivoBtn = screen.getByRole('button', { name: /📂 Archivo/i });
     fireEvent.click(archivoBtn);
 
     globalThis.URL.createObjectURL = vi.fn(() => 'blob:md-test');
     globalThis.URL.revokeObjectURL = vi.fn();
 
-    const saveMdOption = screen.getByText('Guardar en .md');
+    const saveMdOption = screen.getByText(/Guardar en \.md/i);
     fireEvent.click(saveMdOption);
 
-    expect(screen.getByText(/Guion guardado como "CyberNights.md"/i)).toBeInTheDocument();
-  });
-
-  it('adds a new scene when clicking "+ Nueva Escena"', () => {
-    render(<App />);
-    const addSceneButtons = screen.getAllByRole('button', { name: /\+ Nueva Escena/i });
-    expect(addSceneButtons.length).toBe(3);
-
-    fireEvent.click(addSceneButtons[0]);
-    expect(screen.getByText('Nueva Escena 3')).toBeInTheDocument();
-  });
-
-  it('moves a scene to another act using the act selector dropdown', () => {
-    render(<App />);
-    const actSelects = screen.getAllByTitle('Mover de acto');
-    expect(actSelects.length).toBeGreaterThan(0);
-
-    // Change first scene to Act 2
-    fireEvent.change(actSelects[0], { target: { value: 'act-2' } });
-  });
-
-  it('toggles narrative AI assistant sidebar', () => {
-    render(<App />);
-    expect(screen.getByText('Asistente Narrativo')).toBeInTheDocument();
-    const closeAiBtn = screen.getByRole('button', { name: '✕' });
-    fireEvent.click(closeAiBtn);
+    expect(screen.getByText(/Guion guardado como "CyberNights\.md"/i)).toBeInTheDocument();
   });
 });

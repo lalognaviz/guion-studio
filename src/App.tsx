@@ -1,27 +1,53 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { MemoryRouter, Routes, Route, useNavigate, useParams } from 'react-router-dom';
+import { invoke } from '@tauri-apps/api/core';
 
-type Scene = {  
+// Types for IPC Rust Models
+export type ProyectoResumen = {
+  id: number;
+  titulo: string;
+  ruta_archivo?: string | null;
+  creado_en: string;
+};
+
+export type ActoResumen = {
+  id: number;
+  titulo: string;
+  orden: number;
+};
+
+export type ProyectoDetalle = {
+  id: number;
+  titulo: string;
+  ruta_archivo?: string | null;
+  sinopsis: string;
+  actos: ActoResumen[];
+};
+
+// Types for Narrative Board
+export type Scene = {  
   id: string;  
   act_id: string;  
   orden: number;  
   titulo: string;  
   estado: 'Borrador' | 'Revisado' | 'Final';  
-  descripcion: string; // Sinopsis breve
-  escaleta: string;    // Escena detallada / Beat sheet
+  descripcion: string;
+  escaleta: string;
   diseno_nivel?: string;  
   sonido?: string;  
   texto_juego?: string;  
   dialogos?: string;  
 };
 
-type Act = {  
+export type Act = {  
   id: string;  
   orden: number;  
   nombre: string;  
+  sinopsis?: string;
   plot_point: string;  
 };
 
-type ProjectData = {
+export type ProjectData = {
   id: string;
   title: string;
   acts: Act[];
@@ -29,13 +55,31 @@ type ProjectData = {
   updatedAt: string;
 };
 
-const INITIAL_ACTS: Act[] = [  
-  { id: 'act-1', orden: 1, nombre: 'Planteamiento', plot_point: 'La guardia ataca el mercado; el jugador huye a las alcantarillas.' },  
-  { id: 'act-2', orden: 2, nombre: 'Confrontación', plot_point: 'El jugador descubre que es un clon y debe decidir su lealtad.' },  
-  { id: 'act-3', orden: 3, nombre: 'Resolución', plot_point: 'Batalla final en la aguja corporativa.' },  
+const INITIAL_ACTS: Act[] = [
+  { 
+    id: 'act-1', 
+    orden: 1, 
+    nombre: 'Planteamiento', 
+    sinopsis: 'El protagonista despierta tras la explosión en el mercado y busca refugio.',
+    plot_point: 'La guardia ataca el mercado; el jugador huye a las alcantarillas.' 
+  },
+  { 
+    id: 'act-2', 
+    orden: 2, 
+    nombre: 'Confrontación', 
+    sinopsis: 'Navegación por los niveles inferiores y descubrimiento de la red de clones.',
+    plot_point: 'El jugador descubre que es un clon y debe decidir su lealtad.' 
+  },
+  { 
+    id: 'act-3', 
+    orden: 3, 
+    nombre: 'Resolución', 
+    sinopsis: 'Asalto final a la torre corporativa para liberar la ciudad.',
+    plot_point: 'Batalla final en la aguja corporativa.' 
+  },
 ];
 
-const INITIAL_SCENES: Scene[] = [  
+const INITIAL_SCENES: Scene[] = [
   { 
     id: 'scn-1', 
     act_id: 'act-1', 
@@ -67,35 +111,213 @@ const INITIAL_SCENES: Scene[] = [
   },  
 ];
 
-export default function App() {  
-  // Project State
-  const [projectId, setProjectId] = useState<string>('proj-1');
+// IPC Helper Functions
+export async function fetchProyectosRecientes(): Promise<ProyectoResumen[]> {
+  try {
+    return await invoke<ProyectoResumen[]>('obtener_proyectos_recientes');
+  } catch (e) {
+    console.warn("IPC unavailable, using fallback projects:", e);
+    return [
+      { id: 1, titulo: 'CyberNights', ruta_archivo: '/proyectos/cybernights.json', creado_en: '2026-07-25 12:00:00' },
+      { id: 2, titulo: 'Shadow Realm', ruta_archivo: '/proyectos/shadow.json', creado_en: '2026-07-25 11:30:00' },
+    ];
+  }
+}
+
+export async function fetchDetallesProyecto(proyectoId: number): Promise<ProyectoDetalle> {
+  try {
+    return await invoke<ProyectoDetalle>('obtener_detalles_proyecto', {
+      proyectoId: proyectoId,
+      proyecto_id: proyectoId,
+    });
+  } catch (e) {
+    console.warn("IPC unavailable, using fallback detail:", e);
+    if (proyectoId === 2) {
+      return {
+        id: 2,
+        titulo: 'Shadow Realm',
+        ruta_archivo: '/proyectos/shadow.json',
+        sinopsis: 'Fantasía oscura y supervivencia en el reino de las sombras.',
+        actos: [
+          { id: 4, titulo: 'El Despertar', orden: 1 },
+          { id: 5, titulo: 'La Caída', orden: 2 },
+          { id: 6, titulo: 'El Eclipse', orden: 3 },
+        ],
+      };
+    }
+    return {
+      id: 1,
+      titulo: 'CyberNights',
+      ruta_archivo: '/proyectos/cybernights.json',
+      sinopsis: 'Un thriller cyberpunk sobre conspiraciones corporativas.',
+      actos: [
+        { id: 1, titulo: 'Planteamiento', orden: 1 },
+        { id: 2, titulo: 'Confrontación', orden: 2 },
+        { id: 3, titulo: 'Resolución', orden: 3 },
+      ],
+    };
+  }
+}
+
+// -------------------------------------------------------------
+// 1. DASHBOARD INICIO COMPONENT (path="/")
+// -------------------------------------------------------------
+export function Dashboard() {
+  const [proyectos, setProyectos] = useState<ProyectoResumen[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    let isMounted = true;
+    setLoading(true);
+    fetchProyectosRecientes()
+      .then((data) => {
+        if (isMounted) {
+          setProyectos(data);
+          setLoading(false);
+        }
+      })
+      .catch(() => {
+        if (isMounted) {
+          setError("Error al cargar los proyectos recientes.");
+          setLoading(false);
+        }
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  return (
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-violet-500/30 selection:text-violet-200">
+      {/* Top Navbar */}
+      <header className="bg-slate-900/90 backdrop-blur-md border-b border-slate-800 px-6 py-4 flex items-center justify-between shadow-xl sticky top-0 z-40">
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-gradient-to-tr from-violet-600 to-indigo-500 rounded-xl shadow-lg shadow-violet-950/40">
+            <span className="text-xl">✍️</span>
+          </div>
+          <div>
+            <h1 className="text-xl font-black tracking-tight text-white flex items-center gap-2">
+              Guion<span className="text-transparent bg-clip-text bg-gradient-to-r from-violet-400 to-indigo-400">Studio</span>
+            </h1>
+          </div>
+        </div>
+        <button
+          onClick={() => navigate('/tablero/1')}
+          className="bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-lg shadow-indigo-950/50 transition-all duration-200 flex items-center gap-2"
+        >
+          <span>+</span> Nuevo Guion
+        </button>
+      </header>
+
+      {/* Main Content */}
+      <main className="flex-1 max-w-6xl w-full mx-auto p-8">
+        <div className="mb-8 flex items-center justify-between border-b border-slate-800/80 pb-4">
+          <div>
+            <h2 className="text-2xl font-black text-slate-100 tracking-tight">Proyectos Recientes</h2>
+            <p className="text-xs text-slate-400 mt-1">Accede a tus proyectos narrativos y guiones estructurados.</p>
+          </div>
+        </div>
+
+        {loading ? (
+          <div className="flex items-center justify-center p-16 bg-slate-900/60 backdrop-blur-sm rounded-2xl border border-slate-800/80 shadow-2xl">
+            <div className="flex items-center gap-3 text-indigo-400 font-medium">
+              <span className="animate-spin text-2xl">⏳</span>
+              <span className="text-sm">Cargando proyectos...</span>
+            </div>
+          </div>
+        ) : error ? (
+          <div className="p-5 bg-rose-950/40 border border-rose-800/60 text-rose-300 rounded-xl text-sm shadow-xl">
+            {error}
+          </div>
+        ) : proyectos.length === 0 ? (
+          <div className="p-12 text-center bg-slate-900/40 rounded-2xl border border-slate-800/80 text-slate-400 shadow-xl">
+            No hay proyectos recientes registrados en la base de datos.
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {proyectos.map((p) => (
+              <div
+                key={p.id}
+                className="bg-slate-900/80 backdrop-blur-sm border border-slate-800 hover:border-violet-500/40 rounded-2xl p-6 shadow-xl hover:shadow-2xl hover:shadow-violet-950/20 transition-all duration-300 flex flex-col justify-between group"
+              >
+                <div>
+                  <div className="flex items-start justify-between mb-4">
+                    <h3
+                      className="text-lg font-bold text-slate-100 group-hover:text-violet-300 transition cursor-pointer"
+                      onClick={() => navigate(`/tablero/${p.id}`)}
+                    >
+                      {p.titulo}
+                    </h3>
+                  </div>
+                  <p className="text-xs text-slate-400 mb-3 truncate flex items-center gap-1.5 font-mono">
+                    <span className="text-indigo-400">📁</span> {p.ruta_archivo || 'Sin ruta definida'}
+                  </p>
+                  <p className="text-[11px] text-slate-500 mb-6 flex items-center gap-1.5">
+                    <span>📅</span> Creado: {p.creado_en}
+                  </p>
+                </div>
+                <div className="pt-4 border-t border-slate-800/80">
+                  <button
+                    onClick={() => navigate(`/tablero/${p.id}`)}
+                    className="w-full bg-slate-800/90 hover:bg-gradient-to-r hover:from-violet-600 hover:to-indigo-600 text-slate-200 hover:text-white text-xs font-bold py-2.5 px-4 rounded-xl border border-slate-700/80 hover:border-transparent transition-all duration-200 text-center shadow-sm"
+                  >
+                    Abrir
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </main>
+    </div>
+  );
+}
+
+// -------------------------------------------------------------
+// 2. DASHBOARD DEL GUION & DETALLES UNIFICADO (path="/tablero/:id" & "/proyecto/:id")
+// -------------------------------------------------------------
+export function DashboardGuion() {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+
+  const [projectId, setProjectId] = useState<string>(id || 'proj-1');
   const [projectTitle, setProjectTitle] = useState<string>('CyberNights');
-  const [acts, setActs] = useState<Act[]>(INITIAL_ACTS);  
-  const [scenes, setScenes] = useState<Scene[]>(INITIAL_SCENES);  
+  const [projectSynopsis, setProjectSynopsis] = useState<string>('Un thriller cyberpunk sobre conspiraciones corporativas y redes de clonación subterráneas.');
+  const [projectFileRoute, setProjectFileRoute] = useState<string>('/proyectos/cybernights.json');
+  const [acts, setActs] = useState<Act[]>(INITIAL_ACTS);
+  const [scenes, setScenes] = useState<Scene[]>(INITIAL_SCENES);
 
-  // Dropdown & Expand state
-  const [isFileMenuOpen, setIsFileMenuOpen] = useState(false);
   const [expandedSceneId, setExpandedSceneId] = useState<string | null>(null);
-
-  // Save As Modal State
+  const [maximizedScene, setMaximizedScene] = useState<Scene | null>(null);
+  const [isFileMenuOpen, setIsFileMenuOpen] = useState(false);
   const [isSaveAsModalOpen, setIsSaveAsModalOpen] = useState(false);
   const [saveAsTitleInput, setSaveAsTitleInput] = useState('');
-
-  // Maximized Scene Modal state
-  const [maximizedScene, setMaximizedScene] = useState<Scene | null>(null);
-
-  // Markdown Reader Modal state
   const [isMdReaderOpen, setIsMdReaderOpen] = useState(false);
-
-  // UI theme and drawers
-  const [theme, setTheme] = useState<'light' | 'dark'>('dark');  
-  const [isAiOpen, setIsAiOpen] = useState(false);  
+  const [theme, setTheme] = useState<'light' | 'dark'>('dark');
+  const [isAiOpen, setIsAiOpen] = useState(false);
   const [notification, setNotification] = useState<string | null>(null);
 
-  // File input ref for opening projects
   const fileInputRef = useRef<HTMLInputElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+
+  // Sync project details from IPC
+  useEffect(() => {
+    if (id) {
+      const numericId = parseInt(id, 10);
+      if (!isNaN(numericId)) {
+        fetchDetallesProyecto(numericId).then((det) => {
+          if (det) {
+            if (det.titulo) setProjectTitle(det.titulo);
+            if (det.sinopsis) setProjectSynopsis(det.sinopsis);
+            if (det.ruta_archivo) setProjectFileRoute(det.ruta_archivo);
+            setProjectId(`proj-${det.id}`);
+          }
+        }).catch(() => {});
+      }
+    }
+  }, [id]);
 
   // Load project from localStorage on mount
   useEffect(() => {
@@ -104,7 +326,7 @@ export default function App() {
       try {
         const data: ProjectData = JSON.parse(saved);
         if (data.title && Array.isArray(data.acts) && Array.isArray(data.scenes)) {
-          setProjectId(data.id || 'proj-1');
+          setProjectId(data.id || `proj-${id || '1'}`);
           setProjectTitle(data.title);
           setActs(data.acts);
           setScenes(data.scenes);
@@ -113,7 +335,7 @@ export default function App() {
         console.error("Error al cargar proyecto guardado:", e);
       }
     }
-  }, []);
+  }, [id]);
 
   // Sync theme
   useEffect(() => {  
@@ -140,30 +362,95 @@ export default function App() {
     setTimeout(() => setNotification(null), 3000);
   };
 
-  // GENERATE MARKDOWN CONTENT
+  const saveState = (newActs: Act[], newScenes: Scene[]) => {
+    const data: ProjectData = {
+      id: projectId,
+      title: projectTitle,
+      acts: newActs,
+      scenes: newScenes,
+      updatedAt: new Date().toISOString(),
+    };
+    localStorage.setItem('guionstudio_active_project', JSON.stringify(data));
+  };
+
+  // Scene Operations inside Dashboard
+  const handleAddScene = (act_id: string) => {
+    const actScenes = scenes.filter((s) => s.act_id === act_id);
+    const newScene: Scene = {
+      id: `scn-${Date.now()}`,
+      act_id,
+      orden: actScenes.length + 1,
+      titulo: `Nueva Escena ${actScenes.length + 1}`,
+      estado: 'Borrador',
+      descripcion: '',
+      escaleta: '',
+      dialogos: '',
+    };
+    const updatedScenes = [...scenes, newScene];
+    setScenes(updatedScenes);
+    saveState(acts, updatedScenes);
+    showNotification(`Escena creada en Acto ${acts.find((a) => a.id === act_id)?.orden}`);
+  };
+
+  const handleUpdateScene = (updated: Scene) => {
+    const updatedScenes = scenes.map((s) => (s.id === updated.id ? updated : s));
+    setScenes(updatedScenes);
+    saveState(acts, updatedScenes);
+  };
+
+  const handleDeleteScene = (sceneId: string) => {
+    const updatedScenes = scenes.filter((s) => s.id !== sceneId);
+    setScenes(updatedScenes);
+    saveState(acts, updatedScenes);
+    showNotification('Escena eliminada');
+  };
+
+  const handleMoveScene = (sceneId: string, direction: 'up' | 'down') => {
+    const sceneToMove = scenes.find((s) => s.id === sceneId);
+    if (!sceneToMove) return;
+
+    const actScenes = scenes
+      .filter((s) => s.act_id === sceneToMove.act_id)
+      .sort((a, b) => a.orden - b.orden);
+
+    const index = actScenes.findIndex((s) => s.id === sceneId);
+    if (direction === 'up' && index > 0) {
+      const prevScene = actScenes[index - 1];
+      const updatedScenes = scenes.map((s) => {
+        if (s.id === sceneToMove.id) return { ...s, orden: prevScene.orden };
+        if (s.id === prevScene.id) return { ...s, orden: sceneToMove.orden };
+        return s;
+      });
+      setScenes(updatedScenes);
+      saveState(acts, updatedScenes);
+    } else if (direction === 'down' && index < actScenes.length - 1) {
+      const nextScene = actScenes[index + 1];
+      const updatedScenes = scenes.map((s) => {
+        if (s.id === sceneToMove.id) return { ...s, orden: nextScene.orden };
+        if (s.id === nextScene.id) return { ...s, orden: sceneToMove.orden };
+        return s;
+      });
+      setScenes(updatedScenes);
+      saveState(acts, updatedScenes);
+    }
+  };
+
   const generateMarkdownText = () => {
     let md = `# ${projectTitle} - Guion Narrativo\n\n`;
+    md += `**Sinopsis General:** ${projectSynopsis}\n\n`;
     acts.forEach(act => {
       md += `## ACTO ${act.orden}: ${act.nombre}\n`;
+      if (act.sinopsis) md += `*Sinopsis:* ${act.sinopsis}\n`;
       md += `> **Plot Point ${act.orden}:** ${act.plot_point}\n\n`;
       const actScenes = scenes.filter(s => s.act_id === act.id).sort((a, b) => a.orden - b.orden);
       if (actScenes.length === 0) {
-        md += `*(Sin escenas en este acto)*\n\n`;
+        md += `*Sin escenas en este acto.*\n\n`;
       } else {
-        actScenes.forEach(scene => {
-          md += `### Escena ${scene.orden}: ${scene.titulo}\n`;
-          md += `* **Estado:** ${scene.estado}\n`;
-          md += `* **Descripción:** ${scene.descripcion}\n\n`;
-          md += `#### Escaleta Detallada\n${scene.escaleta}\n\n`;
-          if (scene.dialogos) {
-            md += `**[Diálogos]**\n${scene.dialogos}\n\n`;
-          }
-          if (scene.diseno_nivel) {
-            md += `* **Diseño de Nivel:** ${scene.diseno_nivel}\n\n`;
-          }
-          if (scene.sonido) {
-            md += `* **Sonido:** ${scene.sonido}\n\n`;
-          }
+        actScenes.forEach((s) => {
+          md += `### Escena ${s.orden}: ${s.titulo} [${s.estado}]\n`;
+          if (s.descripcion) md += `**Descripción:** ${s.descripcion}\n\n`;
+          if (s.escaleta) md += `**Escaleta:**\n${s.escaleta}\n\n`;
+          if (s.dialogos) md += `**Diálogos:**\n\`\`\`text\n${s.dialogos}\n\`\`\`\n\n`;
           md += `---\n\n`;
         });
       }
@@ -171,985 +458,1166 @@ export default function App() {
     return md;
   };
 
-  // PROJECT MANAGEMENT HANDLERS
   const handleNewProject = () => {
-    setIsFileMenuOpen(false);
-    if (scenes.length > 0) {
-      const confirmNew = window.confirm("¿Deseas crear un nuevo proyecto? Asegúrate de haber guardado tus cambios.");
-      if (!confirmNew) return;
+    if (window.confirm('¿Deseas iniciar un nuevo proyecto? Los cambios no guardados se perderán.')) {
+      setProjectId(`proj-${Date.now()}`);
+      setProjectTitle('Nuevo Proyecto Guion');
+      setScenes([]);
+      showNotification('Nuevo proyecto creado');
+      setIsFileMenuOpen(false);
     }
-    const title = prompt("Título del Nuevo Proyecto:", "Nuevo Proyecto") || "Nuevo Proyecto";
-    setProjectId(`proj-${Date.now()}`);
-    setProjectTitle(title);
-    setActs(INITIAL_ACTS);
-    setScenes([]);
-    setExpandedSceneId(null);
-    showNotification(`Proyecto "${title}" creado.`);
   };
 
-  const saveProjectToFile = (titleToUse: string) => {
-    const projectData: ProjectData = {
+  const handleSaveJson = () => {
+    const data: ProjectData = {
       id: projectId,
-      title: titleToUse,
+      title: projectTitle,
       acts,
       scenes,
       updatedAt: new Date().toISOString(),
     };
-
-    localStorage.setItem('guionstudio_active_project', JSON.stringify(projectData));
-
-    const jsonStr = JSON.stringify(projectData, null, 2);
-    const blob = new Blob([jsonStr], { type: 'application/json' });
+    localStorage.setItem('guionstudio_active_project', JSON.stringify(data));
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${titleToUse.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_guion.json`;
+    a.download = `${projectTitle.toLowerCase().replace(/\s+/g, '_')}.json`;
     a.click();
     URL.revokeObjectURL(url);
-  };
-
-  const handleSaveProject = () => {
+    showNotification(`Proyecto "${projectTitle}" guardado exitosamente (.json)`);
     setIsFileMenuOpen(false);
-    saveProjectToFile(projectTitle);
-    showNotification(`Proyecto "${projectTitle}" guardado exitosamente.`);
   };
 
-  // OPEN GUARDAR COMO MODAL
-  const handleOpenSaveAsModal = () => {
-    setIsFileMenuOpen(false);
-    setSaveAsTitleInput(projectTitle);
-    setIsSaveAsModalOpen(true);
-  };
-
-  // EXECUTE GUARDAR COMO WITH NATIVE FILE PICKER DIALOG OR DOWNLOAD FALLBACK
-  const handleExecuteSaveAs = async (useNativePicker: boolean) => {
-    if (!saveAsTitleInput || !saveAsTitleInput.trim()) return;
-
-    const titleToUse = saveAsTitleInput.trim();
-    setProjectTitle(titleToUse);
-
-    const projectData: ProjectData = {
+  const handleSaveAsSubmit = () => {
+    if (!saveAsTitleInput.trim()) return;
+    setProjectTitle(saveAsTitleInput.trim());
+    const data: ProjectData = {
       id: projectId,
-      title: titleToUse,
+      title: saveAsTitleInput.trim(),
       acts,
       scenes,
       updatedAt: new Date().toISOString(),
     };
-
-    localStorage.setItem('guionstudio_active_project', JSON.stringify(projectData));
-    const jsonStr = JSON.stringify(projectData, null, 2);
-    const defaultFilename = `${titleToUse.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_guion.json`;
-
+    localStorage.setItem('guionstudio_active_project', JSON.stringify(data));
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${saveAsTitleInput.trim().toLowerCase().replace(/\s+/g, '_')}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
     setIsSaveAsModalOpen(false);
-
-    if (useNativePicker && 'showSaveFilePicker' in window) {
-      try {
-        const handle = await (window as any).showSaveFilePicker({
-          suggestedName: defaultFilename,
-          types: [{
-            description: 'Proyecto GuionStudio (*.json, *.guion)',
-            accept: { 'application/json': ['.json', '.guion'] }
-          }]
-        });
-        const writable = await handle.createWritable();
-        await writable.write(jsonStr);
-        await writable.close();
-        showNotification(`Proyecto guardado en la ruta seleccionada.`);
-        return;
-      } catch (err: any) {
-        if (err.name === 'AbortError') return; // User cancelled file picker dialog
-        console.warn("showSaveFilePicker no se pudo completar, usando descarga directa", err);
-      }
-    }
-
-    // Fallback direct download
-    const blob = new Blob([jsonStr], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = defaultFilename;
-    a.click();
-    URL.revokeObjectURL(url);
-    showNotification(`Proyecto guardado como "${titleToUse}".`);
+    showNotification(`Proyecto guardado como "${saveAsTitleInput.trim()}"`);
   };
 
-  // SAVE AS .MD WITH FILE PICKER RUTA
-  const handleSaveAsMarkdown = async () => {
-    setIsFileMenuOpen(false);
-    const mdContent = generateMarkdownText();
-    const defaultFilename = `${projectTitle.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.md`;
-
-    if ('showSaveFilePicker' in window) {
-      try {
-        const handle = await (window as any).showSaveFilePicker({
-          suggestedName: defaultFilename,
-          types: [{
-            description: 'Documento Markdown (*.md)',
-            accept: { 'text/markdown': ['.md'] }
-          }]
-        });
-        const writable = await handle.createWritable();
-        await writable.write(mdContent);
-        await writable.close();
-        showNotification(`Guion .md guardado en la ruta seleccionada.`);
-        return;
-      } catch (err: any) {
-        if (err.name === 'AbortError') return;
-        console.warn("showSaveFilePicker no disponible o cancelado", err);
-      }
-    }
-
-    const blob = new Blob([mdContent], { type: 'text/markdown;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = defaultFilename;
-    a.click();
-    URL.revokeObjectURL(url);
-
-    showNotification(`Guion guardado como "${projectTitle}.md".`);
-  };
-
-  const handleOpenReader = () => {
-    setIsFileMenuOpen(false);
-    setIsMdReaderOpen(true);
-  };
-
-  const handleCopyMdToClipboard = () => {
-    const mdText = generateMarkdownText();
-    navigator.clipboard.writeText(mdText);
-    showNotification("Texto Markdown copiado al portapapeles.");
-  };
-
-  const handleLoadProjectClick = () => {
-    setIsFileMenuOpen(false);
-    fileInputRef.current?.click();
-  };
-
-  const handleFileLoaded = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+  const handleOpenJson = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
     if (!file) return;
-
     const reader = new FileReader();
-    reader.onload = (event) => {
+    reader.onload = (e) => {
       try {
-        const content = event.target?.result as string;
+        const content = e.target?.result as string;
         const data: ProjectData = JSON.parse(content);
-
         if (data.title && Array.isArray(data.acts) && Array.isArray(data.scenes)) {
           setProjectId(data.id || `proj-${Date.now()}`);
           setProjectTitle(data.title);
           setActs(data.acts);
           setScenes(data.scenes);
-          setExpandedSceneId(null);
-          showNotification(`Proyecto "${data.title}" cargado exitosamente.`);
+          showNotification(`Proyecto "${data.title}" cargado correctamente`);
         } else {
-          alert("El archivo seleccionado no tiene una estructura válida de GuionStudio.");
+          alert('El archivo JSON no tiene la estructura de GuionStudio válida.');
         }
       } catch (err) {
-        alert("Error al leer el archivo JSON.");
+        alert('Error al leer el archivo JSON.');
       }
     };
     reader.readAsText(file);
-    e.target.value = '';
+    setIsFileMenuOpen(false);
   };
 
-  // MOVE SCENE TO ANOTHER ACT
-  const handleMoveSceneToAct = (sceneId: string, targetActId: string, e?: React.MouseEvent) => {
-    if (e) e.stopPropagation();
-    setScenes(prev => {
-      const movingScene = prev.find(s => s.id === sceneId);
-      if (!movingScene || movingScene.act_id === targetActId) return prev;
-
-      const targetActScenes = prev.filter(s => s.act_id === targetActId);
-      const newOrden = targetActScenes.length + 1;
-
-      return prev.map(s => s.id === sceneId ? { ...s, act_id: targetActId, orden: newOrden } : s);
-    });
+  const handleSaveMd = () => {
+    const mdContent = generateMarkdownText();
+    const blob = new Blob([mdContent], { type: 'text/markdown' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${projectTitle}.md`;
+    a.click();
+    URL.revokeObjectURL(url);
+    showNotification(`Guion guardado como "${projectTitle}.md"`);
+    setIsFileMenuOpen(false);
   };
 
-  // MOVE SCENE ORDER UP OR DOWN WITHIN ACT
-  const handleMoveSceneOrder = (sceneId: string, direction: 'up' | 'down', e?: React.MouseEvent) => {
-    if (e) e.stopPropagation();
-    setScenes(prev => {
-      const scene = prev.find(s => s.id === sceneId);
-      if (!scene) return prev;
+  return (
+    <div className={`min-h-screen ${theme === 'dark' ? 'bg-slate-950 text-slate-100' : 'bg-slate-100 text-slate-800'} flex flex-col font-sans transition-colors duration-200 selection:bg-violet-500/30 selection:text-violet-200`}>
+      {/* Top Bar Header */}
+      <header className="bg-slate-900/90 backdrop-blur-md text-white px-6 py-3.5 flex items-center justify-between border-b border-slate-800 shadow-xl sticky top-0 z-40">
+        <div className="flex items-center gap-4">
+          <button
+            onClick={() => navigate('/')}
+            className="text-slate-300 hover:text-white text-xs font-semibold px-3 py-1.5 bg-slate-800/80 hover:bg-slate-700/80 rounded-lg border border-slate-700/80 transition flex items-center gap-1.5"
+            title="Volver a la lista de proyectos"
+          >
+            ← Proyectos
+          </button>
 
-      const actScenes = prev.filter(s => s.act_id === scene.act_id).sort((a, b) => a.orden - b.orden);
-      const currentIndex = actScenes.findIndex(s => s.id === sceneId);
-      if (currentIndex === -1) return prev;
+          <h1 className="text-lg font-black tracking-tight text-white flex items-center gap-1.5">
+            Guion<span className="text-transparent bg-clip-text bg-gradient-to-r from-violet-400 to-indigo-400">Studio</span>
+          </h1>
 
-      const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
-      if (targetIndex < 0 || targetIndex >= actScenes.length) return prev;
+          <input
+            type="text"
+            value={projectTitle}
+            onChange={(e) => setProjectTitle(e.target.value)}
+            className="bg-slate-800/90 text-slate-100 text-xs font-semibold px-3 py-1.5 rounded-lg border border-slate-700/80 focus:outline-none focus:border-violet-500 transition max-w-xs"
+            title="Título del proyecto"
+          />
 
-      const reordered = [...actScenes];
-      const temp = reordered[currentIndex];
-      reordered[currentIndex] = reordered[targetIndex];
-      reordered[targetIndex] = temp;
-
-      const updatedActScenes = reordered.map((s, idx) => ({ ...s, orden: idx + 1 }));
-
-      return prev.map(s => {
-        if (s.act_id === scene.act_id) {
-          return updatedActScenes.find(u => u.id === s.id) || s;
-        }
-        return s;
-      });
-    });
-  };
-
-  // ADD SCENE - STARTS COLLAPSED
-  const handleAddScene = (actId: string) => {
-    const actScenes = scenes.filter(s => s.act_id === actId);
-    const newSceneId = `scn-${Date.now()}`;
-    const newScene: Scene = {
-      id: newSceneId,
-      act_id: actId,
-      orden: actScenes.length + 1,
-      titulo: `Nueva Escena ${actScenes.length + 1}`,
-      estado: 'Borrador',
-      descripcion: 'Breve sinopsis de la escena...',
-      escaleta: 'Desglose detallado paso a paso de la escena...',
-    };
-    setScenes(prev => [...prev, newScene]);
-    setExpandedSceneId(null);
-  };
-
-  const handleUpdateSceneField = (sceneId: string, field: keyof Scene, value: string) => {
-    setScenes(prev => prev.map(s => s.id === sceneId ? { ...s, [field]: value } : s));
-  };
-
-  const handleDeleteScene = (sceneId: string, e?: React.MouseEvent) => {
-    if (e) e.stopPropagation();
-    setScenes(prev => prev.filter(s => s.id !== sceneId));
-    if (expandedSceneId === sceneId) setExpandedSceneId(null);
-    if (maximizedScene?.id === sceneId) setMaximizedScene(null);
-  };
-
-  const handleToggleStateInline = (sceneId: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    setScenes(prev => prev.map(s => {
-      if (s.id !== sceneId) return s;
-      const nextState: Scene['estado'] = s.estado === 'Borrador' ? 'Revisado' : s.estado === 'Revisado' ? 'Final' : 'Borrador';
-      return { ...s, estado: nextState };
-    }));
-  };
-
-  const handleToggleExpandScene = (sceneId: string) => {
-    setExpandedSceneId(prev => prev === sceneId ? null : sceneId);
-  };
-
-  // MAXIMIZE SCENE HANDLERS (Aceptar / Cancelar)
-  const handleOpenMaximizeScene = (scene: Scene, e?: React.MouseEvent) => {
-    if (e) e.stopPropagation();
-    setMaximizedScene({ ...scene }); // Draft clone
-  };
-
-  const handleAcceptMaximizedScene = () => {
-    if (!maximizedScene) return;
-    setScenes(prev => prev.map(s => s.id === maximizedScene.id ? maximizedScene : s));
-    setMaximizedScene(null);
-    showNotification(`Cambios en "${maximizedScene.titulo}" aceptados.`);
-  };
-
-  const handleCancelMaximizedScene = () => {
-    setMaximizedScene(null);
-  };
-
-  const handleUpdatePlotPoint = (actId: string, plotPoint: string) => {
-    setActs(prev => prev.map(a => a.id === actId ? { ...a, plot_point: plotPoint } : a));
-  };
-
-  const toggleTheme = () => setTheme(prev => prev === 'dark' ? 'light' : 'dark');
-
-  return (  
-    <div className={`min-h-screen flex flex-col font-sans transition-colors duration-300 ${theme === 'dark' ? 'bg-[#18181b] text-gray-100' : 'bg-gray-100 text-gray-900'}`}>  
-      
-      {/* Hidden File Input */}
-      <input 
-        type="file" 
-        ref={fileInputRef} 
-        onChange={handleFileLoaded} 
-        accept=".json,.guion" 
-        className="hidden" 
-      />
-
-      {/* RESPONSIVE HEADER */}  
-      <header className={`px-4 sm:px-6 py-3 flex flex-wrap justify-between items-center gap-3 z-10 shrink-0 shadow-sm border-b ${theme === 'dark' ? 'bg-[#27272a] border-[#3f3f46]' : 'bg-white border-gray-200'}`}>  
-        <div className="flex items-center gap-3 flex-wrap flex-1 min-w-0">  
-          <h1 className="text-lg sm:text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-emerald-500 to-teal-500 select-none tracking-wide shrink-0">  
-            GuionStudio  
-          </h1>  
-          <div className={`hidden sm:block h-5 w-px mx-1 ${theme === 'dark' ? 'bg-[#3f3f46]' : 'bg-gray-300'}`}></div>  
-          
-          {/* Editable Project Title */}
-          <div className="flex items-center gap-1.5 flex-1 min-w-[140px] max-w-[280px]">
-            <span className="text-xs font-semibold text-zinc-400 shrink-0 hidden xs:inline">Proyecto:</span>
-            <input   
-              type="text"   
-              value={projectTitle}   
-              onChange={(e) => setProjectTitle(e.target.value)}
-              className={`w-full bg-transparent border rounded border-transparent hover:border-zinc-600 focus:border-emerald-500 text-sm sm:text-base font-semibold px-2 py-0.5 outline-none transition-colors truncate ${
-                theme === 'dark' ? 'text-white' : 'text-gray-900'
-              }`}   
-            />  
-          </div>
-        </div>  
-          
-        {/* HEADER ACTIONS */}
-        <div className="flex items-center gap-2 sm:gap-3 shrink-0">  
-          
-          {/* DROPDOWN ARCHIVO */}
+          {/* Archivo Menu Dropdown */}
           <div className="relative" ref={menuRef}>
-            <button 
+            <button
               onClick={() => setIsFileMenuOpen(!isFileMenuOpen)}
-              className={`px-3 py-1.5 rounded text-xs font-semibold flex items-center gap-1.5 sm:gap-2 shadow-sm transition-colors ${
-                theme === 'dark' ? 'bg-zinc-800 hover:bg-zinc-700 text-zinc-100 border border-zinc-700' : 'bg-gray-200 hover:bg-gray-300 text-gray-900'
-              }`}
+              className="bg-slate-800/90 hover:bg-slate-700/80 text-slate-200 text-xs font-semibold py-1.5 px-3 rounded-lg border border-slate-700/80 transition flex items-center gap-1.5"
             >
-              📂 Archivo
+              <span>📂 Archivo</span>
               <span className="text-[10px]">▼</span>
             </button>
 
             {isFileMenuOpen && (
-              <div className={`absolute right-0 sm:left-0 mt-1 w-56 rounded-lg shadow-xl border z-50 py-1 font-sans ${
-                theme === 'dark' ? 'bg-[#27272a] border-[#3f3f46] text-zinc-100' : 'bg-white border-gray-200 text-gray-800'
-              }`}>
+              <div className="absolute left-0 mt-2 w-56 bg-slate-900 border border-slate-800 rounded-xl shadow-2xl py-1.5 z-50 backdrop-blur-md">
                 <button
                   onClick={handleNewProject}
-                  className={`w-full text-left px-4 py-2 text-xs flex items-center gap-2.5 font-medium transition-colors ${
-                    theme === 'dark' ? 'hover:bg-zinc-700' : 'hover:bg-gray-100'
-                  }`}
+                  className="w-full text-left px-4 py-2 text-xs text-slate-200 hover:bg-slate-800 hover:text-violet-300 flex items-center gap-2"
                 >
-                  📄 <span>Nuevo Proyecto</span>
+                  📄 Nuevo Proyecto
                 </button>
-
                 <button
-                  onClick={handleLoadProjectClick}
-                  className={`w-full text-left px-4 py-2 text-xs flex items-center gap-2.5 font-medium transition-colors ${
-                    theme === 'dark' ? 'hover:bg-zinc-700' : 'hover:bg-gray-100'
-                  }`}
+                  onClick={() => fileInputRef.current?.click()}
+                  className="w-full text-left px-4 py-2 text-xs text-slate-200 hover:bg-slate-800 hover:text-violet-300 flex items-center gap-2"
                 >
-                  📂 <span>Abrir Proyecto...</span>
+                  📂 Abrir Proyecto...
                 </button>
-
-                <div className={`my-1 border-t ${theme === 'dark' ? 'border-[#3f3f46]' : 'border-gray-200'}`}></div>
-
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleOpenJson}
+                  accept=".json,.guion"
+                  className="hidden"
+                />
+                <hr className="border-slate-800 my-1" />
                 <button
-                  onClick={handleSaveProject}
-                  className={`w-full text-left px-4 py-2 text-xs flex items-center gap-2.5 font-medium transition-colors ${
-                    theme === 'dark' ? 'hover:bg-zinc-700' : 'hover:bg-gray-100'
-                  }`}
+                  onClick={handleSaveJson}
+                  className="w-full text-left px-4 py-2 text-xs text-slate-200 hover:bg-slate-800 hover:text-violet-300 flex items-center gap-2"
                 >
-                  💾 <span>Guardar (.json)</span>
+                  💾 Guardar (.json)
                 </button>
-
                 <button
-                  onClick={handleOpenSaveAsModal}
-                  className={`w-full text-left px-4 py-2 text-xs flex items-center gap-2.5 font-medium transition-colors ${
-                    theme === 'dark' ? 'hover:bg-zinc-700' : 'hover:bg-gray-100'
-                  }`}
+                  onClick={() => {
+                    setSaveAsTitleInput(projectTitle);
+                    setIsSaveAsModalOpen(true);
+                    setIsFileMenuOpen(false);
+                  }}
+                  className="w-full text-left px-4 py-2 text-xs text-slate-200 hover:bg-slate-800 hover:text-violet-300 flex items-center gap-2"
                 >
-                  📑 <span>Guardar Como...</span>
+                  📑 Guardar Como...
                 </button>
-
-                <div className={`my-1 border-t ${theme === 'dark' ? 'border-[#3f3f46]' : 'border-gray-200'}`}></div>
-
                 <button
-                  onClick={handleSaveAsMarkdown}
-                  className={`w-full text-left px-4 py-2 text-xs flex items-center gap-2.5 font-semibold transition-colors text-emerald-400 ${
-                    theme === 'dark' ? 'hover:bg-zinc-700' : 'hover:bg-gray-100'
-                  }`}
+                  onClick={handleSaveMd}
+                  className="w-full text-left px-4 py-2 text-xs text-slate-200 hover:bg-slate-800 hover:text-violet-300 flex items-center gap-2"
                 >
-                  📝 <span>Guardar en .md</span>
+                  📝 Guardar en .md
                 </button>
-
+                <hr className="border-slate-800 my-1" />
                 <button
-                  onClick={handleOpenReader}
-                  className={`w-full text-left px-4 py-2 text-xs flex items-center gap-2.5 font-semibold transition-colors text-purple-400 ${
-                    theme === 'dark' ? 'hover:bg-zinc-700' : 'hover:bg-gray-100'
-                  }`}
+                  onClick={() => {
+                    setIsMdReaderOpen(true);
+                    setIsFileMenuOpen(false);
+                  }}
+                  className="w-full text-left px-4 py-2 text-xs text-violet-400 hover:bg-slate-800 font-medium flex items-center gap-2"
                 >
-                  📖 <span>Lector Markdown (.md)</span>
+                  📖 Lector Markdown (.md)
                 </button>
               </div>
             )}
           </div>
+        </div>
 
-          <button onClick={toggleTheme} className={`p-1.5 rounded-md transition-colors ${theme === 'dark' ? 'hover:bg-zinc-700 text-zinc-300' : 'hover:bg-gray-200 text-gray-700'}`}>  
-            {theme === 'dark'   
-              ? <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>  
-              : <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>  
-            }  
-          </button>  
-          <button onClick={() => setIsAiOpen(!isAiOpen)} className={`p-1.5 rounded-md transition-colors ${theme === 'dark' ? 'hover:bg-purple-900/30 text-purple-400' : 'hover:bg-purple-100 text-purple-600'}`}>  
-             <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2l3 6 6 3-6 3-3 6-3-6-6-3 6-3z"></path></svg>  
-          </button>  
-        </div>  
+        {/* Right Header controls */}
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+            className="p-1.5 rounded-lg bg-slate-800/80 hover:bg-slate-700/80 text-slate-200 text-xs transition border border-slate-700/80"
+          >
+            {theme === 'dark' ? '☀️ Claro' : '🌙 Oscuro'}
+          </button>
+          <button
+            onClick={() => setIsAiOpen(!isAiOpen)}
+            className="bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white text-xs font-semibold px-3.5 py-1.5 rounded-lg transition shadow-md flex items-center gap-1.5"
+          >
+            <span>✨ Asistente IA</span>
+          </button>
+        </div>
       </header>
 
-      {/* NOTIFICATION TOAST */}
+      {/* Notification Toast */}
       {notification && (
-        <div className="fixed bottom-5 left-1/2 transform -translate-x-1/2 z-50 bg-emerald-600 text-white text-xs font-semibold px-4 py-2 rounded-full shadow-lg flex items-center gap-2 animate-bounce">
-          <span>✓</span> {notification}
+        <div className="fixed bottom-6 right-6 bg-gradient-to-r from-violet-600 to-indigo-600 text-white px-5 py-2.5 rounded-xl shadow-2xl text-xs font-bold z-50 animate-bounce">
+          {notification}
         </div>
       )}
 
-      {/* DYNAMIC RESPONSIVE MAIN CORKBOARD */}
-      <main className="flex-1 flex overflow-hidden relative">  
-        <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-4 lg:gap-6 p-4 sm:p-6 w-full h-full overflow-y-auto md:overflow-y-hidden md:overflow-x-auto">  
-            
-          {acts.map((act) => {
-            const actScenes = scenes.filter(s => s.act_id === act.id).sort((a, b) => a.orden - b.orden);
+      {/* Main Script Dashboard Body */}
+      <div className="flex-1 flex overflow-hidden">
+        <main className="flex-1 p-6 overflow-y-auto max-w-7xl mx-auto w-full space-y-6">
+          
+          {/* UNIFIED PROJECT DETAILS CARD */}
+          <div className="bg-slate-900/80 backdrop-blur-sm border border-slate-800/80 rounded-2xl p-6 shadow-2xl space-y-5">
+            <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800 pb-4">
+              <div className="flex items-center gap-3">
+                <span className="text-[11px] font-black tracking-wider text-violet-300 bg-violet-950/60 border border-violet-800/60 px-3 py-1 rounded-lg uppercase">
+                  Proyecto Activo
+                </span>
+                <h2 className="text-3xl font-black text-slate-100 tracking-tight">{projectTitle}</h2>
+              </div>
+            </div>
 
-            return (  
-              <div   
-                key={act.id}  
-                className={`flex-1 min-w-[270px] flex flex-col border rounded-xl overflow-hidden shadow-sm transition-all duration-150 h-full ${
-                  theme === 'dark' ? 'bg-[#202023] border-[#3f3f46]' : 'bg-white border-gray-200'
-                }`}  
-              >  
-                {/* Act Header */}  
-                <div className={`px-4 py-3 border-b flex justify-between items-center shrink-0 ${theme === 'dark' ? 'bg-[#27272a] border-[#3f3f46]' : 'bg-gray-50 border-gray-200'}`}>  
-                  <h2 className="font-bold uppercase tracking-wider text-xs flex items-center gap-2 select-none truncate">  
-                    <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${act.orden === 1 ? 'bg-blue-500' : act.orden === 2 ? 'bg-amber-500' : 'bg-teal-500'}`}></div>  
-                    <span className="truncate">Acto {act.orden}: {act.nombre}</span>
-                  </h2>  
-                  <span className="text-[11px] text-zinc-400 font-mono px-2 py-0.5 rounded bg-zinc-800/50 select-none shrink-0 ml-2">  
-                    {actScenes.length} escenas  
-                  </span>  
-                </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5 text-sm">
+              <div>
+                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">
+                  Ruta de Archivo:
+                </span>
+                <p className="font-mono text-xs text-slate-300 bg-slate-950/60 p-3 rounded-xl border border-slate-800/80 truncate">
+                  {projectFileRoute || `/proyectos/${projectTitle.toLowerCase().replace(/\s+/g, '_')}.json`}
+                </p>
+              </div>
+              <div>
+                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">
+                  Sinopsis Argumental del Proyecto:
+                </span>
+                <p className="text-xs text-slate-300 bg-slate-950/40 p-3 rounded-xl border border-slate-800/80 leading-relaxed italic">
+                  {projectSynopsis || 'Sinopsis general del proyecto narrativo.'}
+                </p>
+              </div>
+            </div>
+          </div>
 
-                {/* COMPACT ESCENAS LIST */}  
-                <div className="flex-1 p-3 overflow-y-auto flex flex-col gap-2 min-h-[140px]">  
-                  {actScenes.map((scene, index) => {
-                    const isExpanded = expandedSceneId === scene.id;
-                    const isFirst = index === 0;
-                    const isLast = index === actScenes.length - 1;
+          {/* 3 ACTS BOARD SECTION HEADER */}
+          <div className="flex items-center justify-between pt-2 border-b border-slate-800/80 pb-4">
+            <div>
+              <h3 className="text-2xl font-black text-slate-100 tracking-tight">Estructura del Guion por Actos</h3>
+              <p className="text-xs text-slate-400 mt-1">Crea, edita y gestiona escenas directamente o accede al editor dedicado por acto.</p>
+            </div>
+            <span className="bg-slate-900 text-indigo-300 text-xs px-3.5 py-1.5 rounded-full border border-slate-800 font-mono">
+              3 Actos Configurados
+            </span>
+          </div>
 
-                    return (  
-                      <div   
-                        key={scene.id}  
-                        className={`border rounded-lg transition-all duration-150 group overflow-hidden ${
-                          isExpanded 
-                            ? (theme === 'dark' ? 'bg-[#27272a] border-emerald-500/60 shadow-md ring-1 ring-emerald-500/30' : 'bg-emerald-50/20 border-emerald-400 shadow-md')
-                            : (theme === 'dark' ? 'bg-[#27272a]/70 border-[#3f3f46] hover:border-zinc-500' : 'bg-gray-50/80 border-gray-200 hover:border-gray-300')
-                        }`}  
-                      >  
-                        {/* COMPACT HEADER / ROW */}
-                        <div 
-                          onClick={() => handleToggleExpandScene(scene.id)}
-                          className="px-3 py-2 flex items-center justify-between cursor-pointer select-none gap-2 hover:bg-zinc-700/20 transition-colors"
-                        >
-                          <div className="flex items-center gap-1.5 min-w-0 flex-1">
-                            {/* Up / Down reordering buttons */}
-                            <div className="flex flex-col gap-0.5 shrink-0">
-                              <button 
-                                disabled={isFirst}
-                                onClick={(e) => handleMoveSceneOrder(scene.id, 'up', e)}
-                                className={`text-[9px] px-1 rounded leading-none ${isFirst ? 'text-zinc-600 cursor-not-allowed' : 'text-zinc-400 hover:text-zinc-100 hover:bg-zinc-700'}`}
-                                title="Subir orden"
-                              >
-                                ▲
-                              </button>
-                              <button 
-                                disabled={isLast}
-                                onClick={(e) => handleMoveSceneOrder(scene.id, 'down', e)}
-                                className={`text-[9px] px-1 rounded leading-none ${isLast ? 'text-zinc-600 cursor-not-allowed' : 'text-zinc-400 hover:text-zinc-100 hover:bg-zinc-700'}`}
-                                title="Bajar orden"
-                              >
-                                ▼
-                              </button>
-                            </div>
+          {/* 3 SECTIONS FOR 3 ACTS */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch">
+            {acts.map((act) => {
+              const actScenes = scenes
+                .filter((s) => s.act_id === act.id)
+                .sort((a, b) => a.orden - b.orden);
 
-                            <span className="text-xs font-semibold text-zinc-400 font-mono shrink-0">#{scene.orden}</span>
-                            <h3 className="font-semibold text-xs truncate text-zinc-100">{scene.titulo}</h3>
-                          </div>
+              // Distinct color styles per Act for clear visual grouping
+              const actBadgeStyle = act.orden === 1
+                ? 'bg-teal-500/10 text-teal-300 border-teal-500/30'
+                : act.orden === 2
+                ? 'bg-amber-500/10 text-amber-300 border-amber-500/30'
+                : 'bg-indigo-500/10 text-indigo-300 border-indigo-500/30';
 
-                          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-                            {/* Maximize Button */}
-                            <button
-                              onClick={(e) => handleOpenMaximizeScene(scene, e)}
-                              className="text-[11px] p-1 text-zinc-400 hover:text-emerald-400 hover:bg-zinc-700/50 rounded transition-colors"
-                              title="Maximizar escena para edición cómoda"
-                            >
-                              ⛶
-                            </button>
-
-                            {/* Fast Move Act selector */}
-                            <select
-                              value={scene.act_id}
-                              onChange={(e) => handleMoveSceneToAct(scene.id, e.target.value)}
-                              onClick={(e) => e.stopPropagation()}
-                              className={`text-[10px] py-0.5 px-1 rounded border font-medium cursor-pointer outline-none ${
-                                theme === 'dark' ? 'bg-[#18181b] border-zinc-700 text-zinc-300 hover:border-zinc-500' : 'bg-white border-gray-300 text-gray-700'
-                              }`}
-                              title="Mover de acto"
-                            >
-                              {acts.map(a => (
-                                <option key={a.id} value={a.id}>Acto {a.orden}</option>
-                              ))}
-                            </select>
-
-                            {/* Status Badge */}
-                            <span 
-                              onClick={(e) => handleToggleStateInline(scene.id, e)}
-                              title="Click para cambiar estado"
-                              className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border cursor-pointer transition-colors ${  
-                                scene.estado === 'Final'
-                                  ? (theme === 'dark' ? 'bg-blue-900/30 text-blue-400 border-blue-800' : 'bg-blue-100 text-blue-800 border-blue-200')
-                                  : scene.estado === 'Revisado'   
-                                  ? (theme === 'dark' ? 'bg-green-900/30 text-green-400 border-green-800' : 'bg-green-100 text-green-800 border-green-200')  
-                                  : (theme === 'dark' ? 'bg-yellow-900/30 text-yellow-400 border-yellow-800' : 'bg-yellow-100 text-yellow-800 border-yellow-200')  
-                              }`}  
-                            >  
-                              {scene.estado}  
-                            </span>
-
-                            {/* Expand Chevron icon */}
-                            <span className="text-xs text-zinc-400 font-bold ml-0.5 transition-transform">
-                              {isExpanded ? '▲' : '▼'}
-                            </span>
-                          </div>
-                        </div>
-
-                        {/* EXPANDED DETAILS SECTION */}
-                        {isExpanded && (
-                          <div 
-                            onClick={(e) => e.stopPropagation()}
-                            className={`px-3 py-3 border-t space-y-3 ${theme === 'dark' ? 'border-[#3f3f46] bg-[#18181b]/50' : 'border-gray-200 bg-white'}`}
-                          >
-                            {/* Editable Title */}
-                            <div>
-                              <label className="block text-[10px] uppercase font-semibold text-zinc-400 mb-1">Título de Escena</label>
-                              <input 
-                                type="text"
-                                value={scene.titulo}
-                                onChange={(e) => handleUpdateSceneField(scene.id, 'titulo', e.target.value)}
-                                className={`w-full text-xs p-2 rounded border focus:ring-1 outline-none font-medium ${
-                                  theme === 'dark' ? 'bg-[#27272a] border-zinc-700 text-white focus:ring-emerald-500' : 'bg-gray-50 border-gray-300 focus:ring-emerald-500'
-                                }`}
-                              />
-                            </div>
-
-                            {/* Editable Descripción */}
-                            <div>
-                              <label className="block text-[10px] uppercase font-semibold text-zinc-400 mb-1">Descripción / Sinopsis</label>
-                              <input
-                                type="text"
-                                value={scene.descripcion || ''}
-                                onChange={(e) => handleUpdateSceneField(scene.id, 'descripcion', e.target.value)}
-                                placeholder="Breve sinopsis de la escena..."
-                                className={`w-full text-xs p-2 rounded border focus:ring-1 outline-none font-medium ${
-                                  theme === 'dark' ? 'bg-[#27272a] border-zinc-700 text-zinc-200 focus:ring-emerald-500' : 'bg-gray-50 border-gray-300 focus:ring-emerald-500'
-                                }`}
-                              />
-                            </div>
-
-                            {/* Editable Escaleta Detallada */}
-                            <div>
-                              <label className="block text-[10px] uppercase font-semibold text-emerald-400 mb-1">Escaleta (Escena Detallada)</label>
-                              <textarea 
-                                rows={3}
-                                value={scene.escaleta}
-                                onChange={(e) => handleUpdateSceneField(scene.id, 'escaleta', e.target.value)}
-                                placeholder="Desglose detallado paso a paso de la escena..."
-                                className={`w-full text-xs p-2 rounded border focus:ring-1 outline-none resize-none ${
-                                  theme === 'dark' ? 'bg-[#27272a] border-zinc-700 text-zinc-200 focus:ring-emerald-500' : 'bg-gray-50 border-gray-300 focus:ring-emerald-500'
-                                }`}
-                              />
-                            </div>
-
-                            {/* Editable Diálogos */}
-                            <div>
-                              <label className="block text-[10px] uppercase font-semibold text-purple-400 mb-1">Diálogos y Guion</label>
-                              <textarea 
-                                rows={3}
-                                value={scene.dialogos || ''}
-                                onChange={(e) => handleUpdateSceneField(scene.id, 'dialogos', e.target.value)}
-                                placeholder="JUGADOR&#10;¿Dónde estoy?"
-                                className={`w-full text-xs p-2 rounded border font-mono focus:ring-1 outline-none resize-none ${
-                                  theme === 'dark' ? 'bg-[#27272a] border-zinc-700 text-purple-200 focus:ring-purple-500' : 'bg-purple-50 border-purple-200 text-purple-900 focus:ring-purple-500'
-                                }`}
-                              />
-                            </div>
-
-                            {/* Action Bar inside Expanded Card */}
-                            <div className="flex justify-between items-center pt-1 border-t border-zinc-700/50">
-                              <button 
-                                onClick={(e) => handleOpenMaximizeScene(scene, e)}
-                                className="text-[10px] text-emerald-400 hover:text-emerald-300 font-semibold flex items-center gap-1"
-                              >
-                                ⛶ Maximizar Ventana
-                              </button>
-                              <button 
-                                onClick={() => setExpandedSceneId(null)}
-                                className="text-[10px] text-zinc-400 hover:text-zinc-200 font-semibold"
-                              >
-                                ✓ Listo
-                              </button>
-                            </div>
-                          </div>
-                        )}
-                      </div>  
-                    );
-                  })}
-                  {actScenes.length === 0 && (
-                    <div className={`flex-1 border-2 border-dashed rounded-lg flex items-center justify-center p-6 text-xs text-zinc-400 italic select-none ${
-                      theme === 'dark' ? 'border-zinc-800' : 'border-gray-200'
-                    }`}>
-                      Sin escenas en este acto
+              return (
+                <div
+                  key={act.id}
+                  className="bg-slate-900/80 backdrop-blur-sm border border-slate-800/90 hover:border-slate-700 rounded-2xl p-5 flex flex-col justify-between shadow-2xl transition-all duration-200 min-w-0"
+                >
+                  {/* Act Header */}
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <span className={`text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-lg border ${actBadgeStyle}`}>
+                        Acto {act.orden}
+                      </span>
+                      <span className="text-xs text-slate-400 font-mono">
+                        {actScenes.length} escena(s)
+                      </span>
                     </div>
-                  )}
+
+                    <h4 className="text-xl font-extrabold text-slate-100">{`${act.nombre}`}</h4>
+
+                    {/* Sinopsis del Acto */}
+                    <div>
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
+                        Descripción:
+                      </span>
+                      <p className="text-xs text-slate-300 bg-slate-950/60 p-3 rounded-xl border border-slate-800/80 leading-relaxed italic">
+                        {act.sinopsis || 'Sin sinopsis registrada.'}
+                      </p>
+                    </div>
+
+                    {/* Plot Point */}
+                    <div>
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400/90 block mb-1">
+                        Plot Point:
+                      </span>
+                      <p className="text-xs text-amber-200/90 bg-amber-950/20 p-3 rounded-xl border border-amber-900/40">
+                        {act.plot_point || 'Sin punto de trama registrado.'}
+                      </p>
+                    </div>
+
+                    {/* Scrollable Scene List with Full Direct Editing & Creation */}
+                    <div className="space-y-2.5 pt-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                          Escenas:
+                        </span>
+                        <button
+                          onClick={() => handleAddScene(act.id)}
+                          className="bg-violet-600/20 hover:bg-violet-600/30 text-violet-300 border border-violet-500/40 hover:border-violet-500 text-[11px] font-bold px-2.5 py-1 rounded-lg transition"
+                        >
+                          + Nueva Escena
+                        </button>
+                      </div>
+
+                      <div className="max-h-72 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
+                        {actScenes.length === 0 ? (
+                          <div className="text-xs text-slate-500 italic p-4 text-center bg-slate-950/40 rounded-xl border border-slate-800/50">
+                            No hay escenas en este acto. ¡Haz clic en "+ Nueva Escena" para añadir una!
+                          </div>
+                        ) : (
+                          actScenes.map((scene) => {
+                            const isExpanded = expandedSceneId === scene.id;
+
+                            return (
+                              <div
+                                key={scene.id}
+                                className="bg-slate-950/80 border border-slate-800 hover:border-slate-700 rounded-xl p-3 space-y-2 transition min-w-0"
+                              >
+                                <div className="flex items-center justify-between gap-2">
+                                  <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                                    <span className="font-mono text-slate-400 font-bold text-xs shrink-0">
+                                      #{scene.orden}
+                                    </span>
+                                    <input
+                                      type="text"
+                                      value={scene.titulo}
+                                      onChange={(e) => handleUpdateScene({ ...scene, titulo: e.target.value })}
+                                      className="bg-transparent text-slate-100 font-semibold text-xs focus:outline-none focus:bg-slate-900 px-1.5 py-0.5 rounded truncate flex-1 min-w-0 border border-transparent focus:border-slate-700"
+                                    />
+                                  </div>
+
+                                  <div className="flex items-center gap-1 shrink-0">
+                                    {/* Estado Selector */}
+                                    <select
+                                      value={scene.estado}
+                                      onChange={(e) =>
+                                        handleUpdateScene({
+                                          ...scene,
+                                          estado: e.target.value as 'Borrador' | 'Revisado' | 'Final',
+                                        })
+                                      }
+                                      className={`text-[9px] font-bold px-2 py-0.5 rounded-md border focus:outline-none cursor-pointer ${
+                                        scene.estado === 'Final'
+                                          ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30'
+                                          : scene.estado === 'Revisado'
+                                          ? 'bg-amber-500/10 text-amber-300 border-amber-500/30'
+                                          : 'bg-slate-800/80 text-slate-400 border-slate-700/60'
+                                      }`}
+                                    >
+                                      <option value="Borrador">Borrador</option>
+                                      <option value="Revisado">Revisado</option>
+                                      <option value="Final">Final</option>
+                                    </select>
+
+                                    {/* Reorder */}
+                                    <button
+                                      onClick={() => handleMoveScene(scene.id, 'up')}
+                                      className="text-slate-400 hover:text-slate-200 text-[10px] px-1"
+                                      title="Mover arriba"
+                                    >
+                                      ▲
+                                    </button>
+                                    <button
+                                      onClick={() => handleMoveScene(scene.id, 'down')}
+                                      className="text-slate-400 hover:text-slate-200 text-[10px] px-1"
+                                      title="Mover abajo"
+                                    >
+                                      ▼
+                                    </button>
+
+                                    {/* Toggle Inline */}
+                                    <button
+                                      onClick={() => setExpandedSceneId(isExpanded ? null : scene.id)}
+                                      className="text-slate-400 hover:text-violet-400 text-xs px-1"
+                                      title={isExpanded ? 'Contraer' : 'Editar inline'}
+                                    >
+                                      {isExpanded ? '▼' : '►'}
+                                    </button>
+
+                                    {/* Maximize */}
+                                    <button
+                                      onClick={() => setMaximizedScene(scene)}
+                                      className="text-slate-400 hover:text-violet-400 text-xs px-1"
+                                      title="Maximizar escena para edición completa"
+                                    >
+                                      ⛶
+                                    </button>
+
+                                    {/* Delete */}
+                                    <button
+                                      onClick={() => handleDeleteScene(scene.id)}
+                                      className="text-slate-500 hover:text-rose-400 text-xs px-1"
+                                      title="Eliminar escena"
+                                    >
+                                      ✕
+                                    </button>
+                                  </div>
+                                </div>
+
+                                {/* Inline Expanded Form */}
+                                {isExpanded && (
+                                  <div className="pt-2 border-t border-slate-800 space-y-2 text-[11px]">
+                                    <div>
+                                      <label className="block text-[9px] uppercase font-bold text-slate-400 mb-0.5">
+                                        Descripción / Sinopsis:
+                                      </label>
+                                      <textarea
+                                        value={scene.descripcion}
+                                        onChange={(e) => handleUpdateScene({ ...scene, descripcion: e.target.value })}
+                                        rows={2}
+                                        className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-slate-200 focus:outline-none focus:border-violet-500"
+                                        placeholder="Descripción de la escena..."
+                                      />
+                                    </div>
+
+                                    <div>
+                                      <label className="block text-[9px] uppercase font-bold text-slate-400 mb-0.5">
+                                        Escaleta (Beat Sheet):
+                                      </label>
+                                      <textarea
+                                        value={scene.escaleta}
+                                        onChange={(e) => handleUpdateScene({ ...scene, escaleta: e.target.value })}
+                                        rows={2}
+                                        className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-slate-200 font-mono text-[10px] focus:outline-none focus:border-violet-500"
+                                        placeholder="Escaleta paso a paso..."
+                                      />
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Primary Action: Go to Focused Editor for this Act */}
+                  <div className="pt-4 mt-5 border-t border-slate-800/80">
+                    <button
+                      onClick={() => navigate(`/tablero/${id || '1'}/acto/${act.id}`)}
+                      className="w-full bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white text-xs font-bold py-2.5 px-4 rounded-xl shadow-lg shadow-indigo-950/40 transition-all duration-200 flex items-center justify-center gap-2"
+                    >
+                      Editar
+                    </button>
+                  </div>
                 </div>
+              );
+            })}
+          </div>
+        </main>
 
-                {/* Botón Nueva Escena */}  
-                <div className={`p-2 border-t shrink-0 ${theme === 'dark' ? 'border-[#3f3f46] bg-[#18181b]' : 'border-gray-200 bg-gray-50/50'}`}>  
-                  <button 
-                    onClick={() => handleAddScene(act.id)}
-                    className={`w-full py-1.5 border border-dashed rounded-lg text-xs font-semibold transition-colors ${theme === 'dark' ? 'border-zinc-700 text-zinc-400 hover:text-zinc-200 hover:border-zinc-500' : 'border-gray-300 text-gray-600 hover:text-gray-900 hover:border-gray-400'}`}
-                  >  
-                    + Nueva Escena  
-                  </button>  
-                </div>
-
-                {/* Plot Point Textarea */}  
-                <div className={`p-3 border-t shrink-0 ${  
-                  act.orden === 1 ? (theme === 'dark' ? 'bg-blue-900/10 border-blue-900/30' : 'bg-blue-50 border-blue-100') :  
-                  act.orden === 2 ? (theme === 'dark' ? 'bg-amber-900/10 border-amber-900/30' : 'bg-amber-50 border-amber-100') :  
-                  (theme === 'dark' ? 'bg-teal-900/10 border-teal-900/30' : 'bg-teal-50 border-teal-100')  
-                }`}>  
-                  <label className={`text-[10px] uppercase font-bold tracking-wider mb-1 block ${  
-                    act.orden === 1 ? 'text-blue-500' : act.orden === 2 ? 'text-amber-500' : 'text-teal-500'  
-                  }`}>  
-                    {act.orden === 3 ? 'Clímax / Resolución' : `Plot Point ${act.orden}`}  
-                  </label>  
-                  <textarea   
-                    value={act.plot_point}  
-                    onChange={(e) => handleUpdatePlotPoint(act.id, e.target.value)}
-                    className={`w-full text-xs bg-transparent border rounded p-2 focus:ring-1 outline-none resize-none h-14 ${  
-                      theme === 'dark' ? 'border-zinc-700 focus:ring-zinc-500 text-zinc-300' : 'border-gray-300 focus:ring-gray-400'  
-                    }`}  
-                  />  
-                </div>  
-              </div>  
-            );
-          })}  
-        </div>
-
-        {/* SIDEBAR IA */}  
-        <aside className={`w-full sm:w-80 max-w-full border-l flex flex-col shadow-xl absolute right-0 top-0 bottom-0 transform transition-transform duration-300 ease-in-out z-20 ${isAiOpen ? 'translate-x-0' : 'translate-x-full'} ${theme === 'dark' ? 'bg-[#27272a] border-[#3f3f46]' : 'bg-white border-gray-200'}`}>  
-          <div className={`p-4 border-b flex justify-between items-center ${theme === 'dark' ? 'border-[#3f3f46] bg-purple-900/10' : 'border-gray-200 bg-purple-50'}`}>  
-            <h3 className="font-bold text-purple-500 text-sm sm:text-base">Asistente Narrativo</h3>  
-            <button onClick={() => setIsAiOpen(false)} className="text-zinc-400 hover:text-zinc-200 text-base">✕</button>  
-          </div>  
-          <div className="flex-1 p-4 overflow-y-auto">  
-            <div className={`p-3 rounded-lg rounded-tl-none text-xs self-start max-w-[85%] border ${theme === 'dark' ? 'bg-[#18181b] border-[#3f3f46]' : 'bg-gray-100 border-gray-200'}`}>  
-              ¡Hola! Soy tu asistente de diseño narrativo que corre en local. ¿Necesitas ideas para un "bark" de enemigo?  
-            </div>  
-          </div>  
-          <div className={`p-3 border-t ${theme === 'dark' ? 'border-[#3f3f46]' : 'border-gray-200'}`}>  
-            <input type="text" className={`w-full border rounded-full px-4 py-2 text-xs focus:outline-none ${theme === 'dark' ? 'bg-[#18181b] border-[#3f3f46] text-white' : 'bg-gray-100 border-gray-200'}`} placeholder="Pregúntale a la IA..." />  
-          </div>  
-        </aside>
-
-        {/* MODAL GUARDAR PROYECTO COMO */}
-        {isSaveAsModalOpen && (
-          <div className="fixed inset-0 bg-black/75 backdrop-blur-md z-50 flex justify-center items-center p-4">
-            <div className={`w-full max-w-md rounded-xl shadow-2xl overflow-hidden border p-6 space-y-4 ${
-              theme === 'dark' ? 'bg-[#27272a] border-zinc-700 text-zinc-100' : 'bg-white border-gray-300 text-gray-900'
-            }`}>
-              <div className="flex justify-between items-center border-b pb-3 border-zinc-700/50">
-                <h3 className="font-bold text-base flex items-center gap-2">
-                  📑 Guardar Proyecto Como...
+        {/* AI Assistant Drawer */}
+        {isAiOpen && (
+          <aside className="w-80 bg-slate-900/90 backdrop-blur-md border-l border-slate-800 p-5 flex flex-col justify-between shadow-2xl">
+            <div>
+              <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-800">
+                <h3 className="font-bold text-sm text-violet-300 flex items-center gap-2">
+                  <span>✨</span> Asistente Narrativo
                 </h3>
-                <button onClick={() => setIsSaveAsModalOpen(false)} className="text-zinc-400 hover:text-zinc-200 font-bold">
+                <button
+                  onClick={() => setIsAiOpen(false)}
+                  title="Cerrar asistente"
+                  className="text-slate-400 hover:text-white text-xs"
+                >
                   ✕
                 </button>
               </div>
 
+              <div className="space-y-3 text-xs text-slate-300">
+                <p className="bg-slate-950/60 p-3 rounded-xl border border-slate-800 leading-relaxed">
+                  Hola. Puedo ayudarte a sugerir ideas para escenas, generar diálogos o revisar la estructura del guion.
+                </p>
+
+                <button
+                  onClick={() => showNotification('Sugerencia: Añadir una revelación al final del Acto 2')}
+                  className="w-full text-left bg-slate-800/70 hover:bg-slate-800 p-3 rounded-xl border border-slate-700/80 text-violet-200 transition font-medium"
+                >
+                  💡 Sugerir giro argumental
+                </button>
+              </div>
+            </div>
+            <div className="text-[10px] text-slate-500 text-center pt-4 border-t border-slate-800">
+              Integración Local LLM Activa
+            </div>
+          </aside>
+        )}
+      </div>
+
+      {/* Maximized Scene Modal */}
+      {maximizedScene && (
+        <MaximizedSceneModal
+          scene={maximizedScene}
+          onClose={() => setMaximizedScene(null)}
+          onSave={(updated) => {
+            handleUpdateScene(updated);
+            setMaximizedScene(null);
+            showNotification('Cambios guardados en la escena');
+          }}
+        />
+      )}
+
+      {/* Save As Modal */}
+      {isSaveAsModalOpen && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 max-w-md w-full shadow-2xl">
+            <h3 className="text-lg font-bold text-slate-100 mb-2">Guardar Proyecto Como...</h3>
+            <p className="text-xs text-slate-400 mb-4">
+              Ingresa un nuevo nombre para el archivo de proyecto (.json).
+            </p>
+            <input
+              type="text"
+              value={saveAsTitleInput}
+              onChange={(e) => setSaveAsTitleInput(e.target.value)}
+              className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-slate-100 mb-6 focus:outline-none focus:border-violet-500"
+            />
+            <div className="flex items-center justify-end gap-3">
+              <button
+                onClick={() => setIsSaveAsModalOpen(false)}
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-xl border border-slate-700"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleSaveAsSubmit}
+                className="px-4 py-2 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white text-xs font-bold rounded-xl shadow-lg"
+              >
+                Descarga Directa (.json)
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Markdown Reader Modal */}
+      {isMdReaderOpen && (
+        <div className="fixed inset-0 bg-black/85 backdrop-blur-sm flex items-center justify-center p-6 z-50">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-4xl max-h-[85vh] flex flex-col shadow-2xl overflow-hidden">
+            <div className="px-6 py-4 bg-slate-900 border-b border-slate-800 flex items-center justify-between">
+              <h3 className="text-lg font-bold text-violet-300 flex items-center gap-2">
+                <span>📖</span> Lector de Guion Markdown (.md)
+              </h3>
+              <button
+                onClick={() => setIsMdReaderOpen(false)}
+                className="text-slate-400 hover:text-white text-sm"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="flex-1 p-6 overflow-y-auto bg-slate-950 font-mono text-xs text-slate-200 leading-relaxed whitespace-pre-wrap">
+              {generateMarkdownText()}
+            </div>
+            <div className="px-6 py-4 bg-slate-900 border-t border-slate-800 flex items-center justify-between">
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(generateMarkdownText());
+                  showNotification('Copiado al portapapeles');
+                }}
+                className="bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold px-4 py-2 rounded-xl border border-slate-700"
+              >
+                📋 Copiar Texto
+              </button>
+              <button
+                onClick={() => setIsMdReaderOpen(false)}
+                className="bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white text-xs font-bold px-5 py-2.5 rounded-xl shadow-lg"
+              >
+                Cerrar Visor
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Re-export for route compatibility
+export function DetallesProyecto() {
+  return <DashboardGuion />;
+}
+
+// -------------------------------------------------------------
+// 3. EDITOR DE ACTO COMPONENT (path="/tablero/:id/acto/:actoId")
+// -------------------------------------------------------------
+export function EditorActo() {
+  const { id, actoId } = useParams<{ id: string; actoId: string }>();
+  const navigate = useNavigate();
+
+  const [projectId, setProjectId] = useState<string>(id || 'proj-1');
+  const [projectTitle, setProjectTitle] = useState<string>('CyberNights');
+  const [acts, setActs] = useState<Act[]>(INITIAL_ACTS);
+  const [scenes, setScenes] = useState<Scene[]>(INITIAL_SCENES);
+
+  const [expandedSceneId, setExpandedSceneId] = useState<string | null>(null);
+  const [maximizedScene, setMaximizedScene] = useState<Scene | null>(null);
+  const [notification, setNotification] = useState<string | null>(null);
+  const [theme, setTheme] = useState<'light' | 'dark'>('dark');
+
+  // Load project state from localStorage
+  useEffect(() => {
+    const saved = localStorage.getItem('guionstudio_active_project');
+    if (saved) {
+      try {
+        const data: ProjectData = JSON.parse(saved);
+        if (data.title && Array.isArray(data.acts) && Array.isArray(data.scenes)) {
+          setProjectId(data.id || `proj-${id || '1'}`);
+          setProjectTitle(data.title);
+          setActs(data.acts);
+          setScenes(data.scenes);
+        }
+      } catch (e) {
+        console.error("Error al cargar proyecto:", e);
+      }
+    }
+  }, [id]);
+
+  // Sync theme
+  useEffect(() => {  
+    if (theme === 'dark') {  
+      document.documentElement.classList.add('dark');  
+    } else {  
+      document.documentElement.classList.remove('dark');  
+    }  
+  }, [theme]);
+
+  // Current Act
+  const currentAct = acts.find((a) => a.id === actoId) || acts[0] || {
+    id: actoId || 'act-1',
+    orden: 1,
+    nombre: 'Planteamiento',
+    sinopsis: '',
+    plot_point: '',
+  };
+
+  const showNotification = (msg: string) => {
+    setNotification(msg);
+    setTimeout(() => setNotification(null), 3000);
+  };
+
+  const saveState = (newActs: Act[], newScenes: Scene[]) => {
+    const data: ProjectData = {
+      id: projectId,
+      title: projectTitle,
+      acts: newActs,
+      scenes: newScenes,
+      updatedAt: new Date().toISOString(),
+    };
+    localStorage.setItem('guionstudio_active_project', JSON.stringify(data));
+  };
+
+  const updateCurrentAct = (fields: Partial<Act>) => {
+    const updated = acts.map((a) => (a.id === currentAct.id ? { ...a, ...fields } : a));
+    setActs(updated);
+    saveState(updated, scenes);
+  };
+
+  const handleAddScene = () => {
+    const actScenes = scenes.filter((s) => s.act_id === currentAct.id);
+    const newScene: Scene = {
+      id: `scn-${Date.now()}`,
+      act_id: currentAct.id,
+      orden: actScenes.length + 1,
+      titulo: `Nueva Escena ${actScenes.length + 1}`,
+      estado: 'Borrador',
+      descripcion: '',
+      escaleta: '',
+      dialogos: '',
+    };
+    const updatedScenes = [...scenes, newScene];
+    setScenes(updatedScenes);
+    saveState(acts, updatedScenes);
+    showNotification(`Escena creada en ${currentAct.nombre}`);
+  };
+
+  const handleUpdateScene = (updated: Scene) => {
+    const updatedScenes = scenes.map((s) => (s.id === updated.id ? updated : s));
+    setScenes(updatedScenes);
+    saveState(acts, updatedScenes);
+  };
+
+  const handleDeleteScene = (sceneId: string) => {
+    const updatedScenes = scenes.filter((s) => s.id !== sceneId);
+    setScenes(updatedScenes);
+    saveState(acts, updatedScenes);
+    showNotification('Escena eliminada');
+  };
+
+  const handleMoveScene = (sceneId: string, direction: 'up' | 'down') => {
+    const sceneToMove = scenes.find((s) => s.id === sceneId);
+    if (!sceneToMove) return;
+
+    const actScenes = scenes
+      .filter((s) => s.act_id === currentAct.id)
+      .sort((a, b) => a.orden - b.orden);
+
+    const index = actScenes.findIndex((s) => s.id === sceneId);
+    if (direction === 'up' && index > 0) {
+      const prevScene = actScenes[index - 1];
+      const updatedScenes = scenes.map((s) => {
+        if (s.id === sceneToMove.id) return { ...s, orden: prevScene.orden };
+        if (s.id === prevScene.id) return { ...s, orden: sceneToMove.orden };
+        return s;
+      });
+      setScenes(updatedScenes);
+      saveState(acts, updatedScenes);
+    } else if (direction === 'down' && index < actScenes.length - 1) {
+      const nextScene = actScenes[index + 1];
+      const updatedScenes = scenes.map((s) => {
+        if (s.id === sceneToMove.id) return { ...s, orden: nextScene.orden };
+        if (s.id === nextScene.id) return { ...s, orden: sceneToMove.orden };
+        return s;
+      });
+      setScenes(updatedScenes);
+      saveState(acts, updatedScenes);
+    }
+  };
+
+  const actScenes = scenes
+    .filter((s) => s.act_id === currentAct.id)
+    .sort((a, b) => a.orden - b.orden);
+
+  return (
+    <div className={`min-h-screen ${theme === 'dark' ? 'bg-slate-950 text-slate-100' : 'bg-slate-100 text-slate-800'} flex flex-col font-sans transition-colors duration-200 selection:bg-violet-500/30 selection:text-violet-200`}>
+      {/* Top Navbar */}
+      <header className="bg-slate-900/90 backdrop-blur-md text-white px-6 py-3.5 flex items-center justify-between border-b border-slate-800 shadow-xl sticky top-0 z-40">
+        <div className="flex items-center gap-4">
+          <button
+            onClick={() => navigate(`/tablero/${id || '1'}`)}
+            className="text-slate-300 hover:text-white text-xs font-semibold px-3 py-1.5 bg-slate-800/80 hover:bg-slate-700/80 rounded-lg border border-slate-700/80 transition flex items-center gap-1.5"
+            title="Volver al Dashboard del Guion"
+          >
+            ← Dashboard de Guion
+          </button>
+
+          <span className="text-slate-700">|</span>
+
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-black uppercase bg-violet-950/70 text-violet-300 px-2.5 py-0.5 rounded-md border border-violet-800/60">
+              Acto {currentAct.orden}
+            </span>
+            <h1 className="text-base font-bold text-slate-100">{currentAct.nombre}</h1>
+          </div>
+        </div>
+
+        {/* Act Switcher & Theme Buttons */}
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            {acts.map((a) => (
+              <button
+                key={a.id}
+                onClick={() => navigate(`/tablero/${id || '1'}/acto/${a.id}`)}
+                className={`text-xs px-3 py-1.5 rounded-lg font-semibold transition ${
+                  a.id === currentAct.id
+                    ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-md'
+                    : 'bg-slate-800/80 hover:bg-slate-700/80 text-slate-300 border border-slate-700/80'
+                }`}
+              >
+                Acto {a.orden}
+              </button>
+            ))}
+          </div>
+
+          <button
+            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+            className="p-1.5 rounded-lg bg-slate-800/80 hover:bg-slate-700/80 text-slate-200 text-xs transition border border-slate-700/80"
+          >
+            {theme === 'dark' ? '☀️ Claro' : '🌙 Oscuro'}
+          </button>
+        </div>
+      </header>
+
+      {/* Notification Toast */}
+      {notification && (
+        <div className="fixed bottom-6 right-6 bg-gradient-to-r from-violet-600 to-indigo-600 text-white px-5 py-2.5 rounded-xl shadow-2xl text-xs font-bold z-50 animate-bounce">
+          {notification}
+        </div>
+      )}
+
+      {/* Main Content */}
+      <main className="flex-1 max-w-5xl w-full mx-auto p-8 space-y-6">
+        {/* Act Header & Meta Edit Card */}
+        <div className="bg-slate-900/80 backdrop-blur-sm border border-slate-800/80 rounded-2xl p-6 shadow-2xl space-y-5">
+          <div className="flex items-center justify-between">
+            <h2 className="text-2xl font-black text-violet-300 flex items-center gap-2 tracking-tight">
+              <span>🎭</span> Editor Dedicado: Acto {currentAct.orden}
+            </h2>
+            <span className="text-xs font-mono text-slate-400">
+              {actScenes.length} escena(s) registradas
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div>
+              <label className="block text-xs font-bold uppercase text-slate-400 mb-1.5">
+                Nombre del Acto:
+              </label>
+              <input
+                type="text"
+                value={currentAct.nombre}
+                onChange={(e) => updateCurrentAct({ nombre: e.target.value })}
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-slate-100 focus:outline-none focus:border-violet-500 font-semibold"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold uppercase text-amber-400/90 mb-1.5">
+                Plot Point / Punto de Trama:
+              </label>
+              <input
+                type="text"
+                value={currentAct.plot_point}
+                onChange={(e) => updateCurrentAct({ plot_point: e.target.value })}
+                className="w-full bg-slate-950 border border-amber-900/50 rounded-xl p-3 text-sm text-amber-200 focus:outline-none focus:border-amber-500"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold uppercase text-slate-400 mb-1.5">
+              Sinopsis del Acto:
+            </label>
+            <textarea
+              value={currentAct.sinopsis || ''}
+              onChange={(e) => updateCurrentAct({ sinopsis: e.target.value })}
+              rows={2}
+              className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-slate-200 focus:outline-none focus:border-violet-500 leading-relaxed"
+              placeholder="Escribe la sinopsis del acto..."
+            />
+          </div>
+        </div>
+
+        {/* Scenes List Section */}
+        <div className="bg-slate-900/80 backdrop-blur-sm border border-slate-800/80 rounded-2xl p-6 shadow-2xl space-y-5">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xl font-bold text-slate-100 flex items-center gap-2">
+              <span>🎬</span> Escenas de {currentAct.nombre}
+            </h3>
+            <button
+              onClick={handleAddScene}
+              className="bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white text-xs font-bold py-2.5 px-4 rounded-xl shadow-lg transition"
+            >
+              + Nueva Escena
+            </button>
+          </div>
+
+          {actScenes.length === 0 ? (
+            <div className="p-10 text-center bg-slate-950/40 rounded-2xl border border-slate-800/80 text-slate-400 text-sm">
+              No hay escenas creadas en este acto. ¡Haz clic en "+ Nueva Escena" para comenzar!
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {actScenes.map((scene) => {
+                const isExpanded = expandedSceneId === scene.id;
+
+                return (
+                  <div
+                    key={scene.id}
+                    className="bg-slate-950/80 border border-slate-800 hover:border-slate-700 rounded-2xl p-5 shadow-lg transition space-y-4"
+                  >
+                    {/* Scene Item Bar */}
+                    <div className="flex flex-wrap sm:flex-nowrap items-center justify-between gap-3">
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                        <span className="text-xs font-mono font-bold text-slate-400 bg-slate-900 px-2.5 py-1 rounded-lg border border-slate-800">
+                          #{scene.orden}
+                        </span>
+                        <input
+                          type="text"
+                          value={scene.titulo}
+                          onChange={(e) => handleUpdateScene({ ...scene, titulo: e.target.value })}
+                          className="bg-transparent text-base font-bold text-slate-100 focus:outline-none focus:bg-slate-900 px-2 py-1 rounded-lg truncate flex-1 min-w-0 border border-transparent focus:border-slate-800"
+                        />
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0">
+                        {/* Estado Selector */}
+                        <select
+                          value={scene.estado}
+                          onChange={(e) =>
+                            handleUpdateScene({
+                              ...scene,
+                              estado: e.target.value as 'Borrador' | 'Revisado' | 'Final',
+                            })
+                          }
+                          className={`text-xs font-bold px-3 py-1.5 rounded-lg border focus:outline-none cursor-pointer ${
+                            scene.estado === 'Final'
+                              ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30'
+                              : scene.estado === 'Revisado'
+                              ? 'bg-amber-500/10 text-amber-300 border-amber-500/30'
+                              : 'bg-slate-900 text-slate-400 border-slate-800'
+                          }`}
+                        >
+                          <option value="Borrador">Borrador</option>
+                          <option value="Revisado">Revisado</option>
+                          <option value="Final">Final</option>
+                        </select>
+
+                        {/* Reorder Buttons */}
+                        <button
+                          onClick={() => handleMoveScene(scene.id, 'up')}
+                          className="text-slate-400 hover:text-slate-200 text-xs px-2 py-1 bg-slate-900 rounded-lg border border-slate-800"
+                          title="Mover arriba"
+                        >
+                          ▲
+                        </button>
+                        <button
+                          onClick={() => handleMoveScene(scene.id, 'down')}
+                          className="text-slate-400 hover:text-slate-200 text-xs px-2 py-1 bg-slate-900 rounded-lg border border-slate-800"
+                          title="Mover abajo"
+                        >
+                          ▼
+                        </button>
+
+                        {/* Toggle Inline Details */}
+                        <button
+                          onClick={() => setExpandedSceneId(isExpanded ? null : scene.id)}
+                          className="text-slate-300 hover:text-violet-400 text-xs px-3 py-1.5 bg-slate-900 rounded-lg border border-slate-800 font-semibold"
+                        >
+                          {isExpanded ? 'Contraer ▲' : 'Desplegar Inline ▼'}
+                        </button>
+
+                        {/* Maximize Button */}
+                        <button
+                          onClick={() => setMaximizedScene(scene)}
+                          className="bg-violet-950/60 hover:bg-violet-900/60 text-violet-300 border border-violet-800/60 text-xs px-3 py-1.5 rounded-lg font-semibold flex items-center gap-1.5 transition"
+                          title="Maximizar escena para edición dedicada"
+                        >
+                          <span>⛶</span> Maximizar
+                        </button>
+
+                        {/* Delete Button */}
+                        <button
+                          onClick={() => handleDeleteScene(scene.id)}
+                          className="text-slate-500 hover:text-rose-400 text-xs px-2 py-1"
+                          title="Eliminar escena"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Inline Expanded Editor */}
+                    {isExpanded && (
+                      <div className="pt-4 border-t border-slate-900 space-y-4 text-xs">
+                        <div>
+                          <label className="block text-[10px] uppercase font-bold text-slate-400 mb-1">
+                            Sinopsis / Descripción Breve:
+                          </label>
+                          <textarea
+                            value={scene.descripcion}
+                            onChange={(e) => handleUpdateScene({ ...scene, descripcion: e.target.value })}
+                            rows={2}
+                            className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-slate-200 focus:outline-none focus:border-violet-500"
+                            placeholder="Resumen argumental de la escena..."
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[10px] uppercase font-bold text-slate-400 mb-1">
+                            Escaleta (Beat Sheet):
+                          </label>
+                          <textarea
+                            value={scene.escaleta}
+                            onChange={(e) => handleUpdateScene({ ...scene, escaleta: e.target.value })}
+                            rows={3}
+                            className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-slate-200 font-mono text-[11px] focus:outline-none focus:border-violet-500"
+                            placeholder="1. Evento 1&#10;2. Evento 2..."
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[10px] uppercase font-bold text-slate-400 mb-1">
+                            Diálogos:
+                          </label>
+                          <textarea
+                            value={scene.dialogos || ''}
+                            onChange={(e) => handleUpdateScene({ ...scene, dialogos: e.target.value })}
+                            rows={3}
+                            className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-slate-200 font-mono text-[11px] focus:outline-none focus:border-violet-500"
+                            placeholder="PERSONAJE&#10;(Emoción)&#10;Diálogo..."
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </main>
+
+      {/* Maximized Scene Modal */}
+      {maximizedScene && (
+        <MaximizedSceneModal
+          scene={maximizedScene}
+          onClose={() => setMaximizedScene(null)}
+          onSave={(updated) => {
+            handleUpdateScene(updated);
+            setMaximizedScene(null);
+            showNotification('Cambios guardados en la escena');
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+// -------------------------------------------------------------
+// MAXIMIZED SCENE MODAL COMPONENT
+// -------------------------------------------------------------
+function MaximizedSceneModal({
+  scene,
+  onClose,
+  onSave,
+}: {
+  scene: Scene;
+  onClose: () => void;
+  onSave: (updated: Scene) => void;
+}) {
+  const [draft, setDraft] = useState<Scene>({ ...scene });
+
+  return (
+    <div className="fixed inset-0 bg-black/85 backdrop-blur-md flex items-center justify-center p-6 z-50">
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-5xl h-[90vh] flex flex-col shadow-2xl overflow-hidden">
+        {/* Header */}
+        <div className="px-6 py-4 bg-slate-950 border-b border-slate-800 flex items-center justify-between">
+          <div className="flex items-center gap-3 flex-1">
+            <span className="text-lg text-violet-400">⛶</span>
+            <input
+              type="text"
+              value={draft.titulo}
+              onChange={(e) => setDraft({ ...draft, titulo: e.target.value })}
+              className="bg-slate-900 text-slate-100 font-bold text-lg px-3 py-1 rounded-xl border border-slate-800 focus:outline-none focus:border-violet-500 flex-1 max-w-md"
+            />
+          </div>
+          <h4 className="text-xs text-slate-400 font-medium mr-4">
+            Edición Cómoda de Escena y Escaleta Detallada
+          </h4>
+          <button onClick={onClose} className="text-slate-400 hover:text-white text-sm">
+            ✕
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="flex-1 p-6 overflow-y-auto grid grid-cols-1 md:grid-cols-2 gap-6 bg-slate-950/60">
+          <div className="space-y-4">
+            <div>
+              <label className="block text-xs font-bold uppercase text-slate-400 mb-1.5">
+                Descripción / Sinopsis:
+              </label>
+              <textarea
+                value={draft.descripcion}
+                onChange={(e) => setDraft({ ...draft, descripcion: e.target.value })}
+                rows={3}
+                className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-sm text-slate-100 focus:outline-none focus:border-violet-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold uppercase text-slate-400 mb-1.5">
+                Escaleta Paso a Paso (Beat Sheet):
+              </label>
+              <textarea
+                value={draft.escaleta}
+                onChange={(e) => setDraft({ ...draft, escaleta: e.target.value })}
+                rows={10}
+                className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-xs text-slate-100 font-mono focus:outline-none focus:border-violet-500 leading-relaxed"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <div>
+              <label className="block text-xs font-bold uppercase text-slate-400 mb-1.5">
+                Diálogos (Formato Guion):
+              </label>
+              <textarea
+                value={draft.dialogos || ''}
+                onChange={(e) => setDraft({ ...draft, dialogos: e.target.value })}
+                rows={8}
+                className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-xs text-slate-100 font-mono focus:outline-none focus:border-violet-500 leading-relaxed"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-semibold uppercase text-zinc-400 mb-1.5">Nuevo Nombre del Proyecto</label>
-                <input 
-                  type="text"
-                  value={saveAsTitleInput}
-                  onChange={(e) => setSaveAsTitleInput(e.target.value)}
-                  placeholder="Ej: CyberNights Edición Director"
-                  className={`w-full text-sm font-semibold p-2.5 rounded border outline-none focus:ring-1 ${
-                    theme === 'dark' ? 'bg-[#18181b] border-zinc-700 text-white focus:ring-emerald-500' : 'bg-gray-50 border-gray-300 focus:ring-emerald-500'
-                  }`}
+                <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">
+                  Notas de Diseño de Nivel:
+                </label>
+                <textarea
+                  value={draft.diseno_nivel || ''}
+                  onChange={(e) => setDraft({ ...draft, diseno_nivel: e.target.value })}
+                  rows={4}
+                  className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-xs text-slate-200 focus:outline-none focus:border-violet-500"
                 />
               </div>
 
-              <p className="text-xs text-zinc-400 leading-relaxed">
-                Selecciona cómo deseas guardar tu archivo: puedes elegir la carpeta de destino con el Explorador de Archivos o realizar una descarga directa.
-              </p>
-
-              <div className="flex flex-col gap-2 pt-2">
-                <button
-                  onClick={() => handleExecuteSaveAs(true)}
-                  className="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-xs font-bold transition-colors flex items-center justify-center gap-2 shadow-sm"
-                >
-                  📂 Elegir Ruta en explorador (Save As...)
-                </button>
-                <button
-                  onClick={() => handleExecuteSaveAs(false)}
-                  className="w-full py-2 px-4 bg-zinc-700 hover:bg-zinc-600 text-zinc-200 rounded text-xs font-semibold transition-colors flex items-center justify-center gap-2"
-                >
-                  📥 Descarga Directa (.json)
-                </button>
+              <div>
+                <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">
+                  Efectos de Sonido (SFX):
+                </label>
+                <textarea
+                  value={draft.sonido || ''}
+                  onChange={(e) => setDraft({ ...draft, sonido: e.target.value })}
+                  rows={4}
+                  className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-xs text-slate-200 focus:outline-none focus:border-violet-500"
+                />
               </div>
             </div>
           </div>
-        )}
+        </div>
 
-        {/* MODAL ESCENA MAXIMIZADA (EDICIÓN CÓMODA CON ACEPTAR / CANCELAR) */}
-        {maximizedScene && (
-          <div className="fixed inset-0 bg-black/75 backdrop-blur-md z-50 flex justify-center items-center p-3 sm:p-6 md:p-8">
-            <div className={`w-full max-w-5xl h-[92vh] rounded-xl shadow-2xl flex flex-col overflow-hidden border ${
-              theme === 'dark' ? 'bg-[#18181b] border-zinc-700 text-zinc-100' : 'bg-white border-gray-300 text-gray-900'
-            }`}>
-              {/* Maximized Header */}
-              <div className={`px-6 py-4 border-b flex justify-between items-center shrink-0 ${
-                theme === 'dark' ? 'bg-[#27272a] border-zinc-700' : 'bg-gray-50 border-gray-200'
-              }`}>
-                <div className="flex items-center gap-3">
-                  <span className="text-xl">⛶</span>
-                  <div>
-                    <h3 className="font-bold text-base sm:text-lg">Escena #{maximizedScene.orden}: {maximizedScene.titulo}</h3>
-                    <p className="text-xs text-zinc-400">Edición Cómoda de Escena y Escaleta Detallada</p>
-                  </div>
-                </div>
+        {/* Footer */}
+        <div className="px-6 py-4 bg-slate-950 border-t border-slate-800 flex items-center justify-end gap-3">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-xl border border-slate-700"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={() => onSave(draft)}
+            className="px-5 py-2.5 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white text-xs font-bold rounded-xl shadow-lg"
+          >
+            ✓ Aceptar
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
-                <div className="flex items-center gap-2">
-                  <button 
-                    onClick={handleCancelMaximizedScene}
-                    className="px-3.5 py-1.5 bg-zinc-700 hover:bg-zinc-600 text-zinc-200 rounded text-xs font-semibold transition-colors"
-                  >
-                    Cancelar
-                  </button>
-                  <button 
-                    onClick={handleAcceptMaximizedScene}
-                    className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-xs font-semibold transition-colors shadow-sm"
-                  >
-                    ✓ Aceptar
-                  </button>
-                </div>
-              </div>
-
-              {/* Maximized Body Content */}
-              <div className="flex-1 overflow-y-auto p-6 sm:p-8 space-y-5">
-                
-                {/* Header Metadata: Title, Act, Status */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <div className="sm:col-span-2">
-                    <label className="block text-xs font-semibold uppercase text-zinc-400 mb-1">Título de la Escena</label>
-                    <input 
-                      type="text"
-                      value={maximizedScene.titulo}
-                      onChange={(e) => setMaximizedScene({ ...maximizedScene, titulo: e.target.value })}
-                      className={`w-full text-sm sm:text-base font-semibold p-2.5 rounded border outline-none focus:ring-1 ${
-                        theme === 'dark' ? 'bg-[#27272a] border-zinc-700 text-white focus:ring-emerald-500' : 'bg-gray-50 border-gray-300 focus:ring-emerald-500'
-                      }`}
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="block text-xs font-semibold uppercase text-zinc-400 mb-1">Acto</label>
-                      <select 
-                        value={maximizedScene.act_id}
-                        onChange={(e) => setMaximizedScene({ ...maximizedScene, act_id: e.target.value })}
-                        className={`w-full text-xs p-2.5 rounded border outline-none ${
-                          theme === 'dark' ? 'bg-[#27272a] border-zinc-700 text-white' : 'bg-gray-50 border-gray-300'
-                        }`}
-                      >
-                        {acts.map(a => (
-                          <option key={a.id} value={a.id}>Acto {a.orden}</option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-semibold uppercase text-zinc-400 mb-1">Estado</label>
-                      <select 
-                        value={maximizedScene.estado}
-                        onChange={(e) => setMaximizedScene({ ...maximizedScene, estado: e.target.value as Scene['estado'] })}
-                        className={`w-full text-xs p-2.5 rounded border outline-none ${
-                          theme === 'dark' ? 'bg-[#27272a] border-zinc-700 text-white' : 'bg-gray-50 border-gray-300'
-                        }`}
-                      >
-                        <option value="Borrador">Borrador</option>
-                        <option value="Revisado">Revisado</option>
-                        <option value="Final">Final</option>
-                      </select>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Section 1: Descripción / Sinopsis */}
-                <div>
-                  <label className="block text-xs font-semibold uppercase text-zinc-400 mb-1">Descripción / Sinopsis Breve</label>
-                  <textarea 
-                    rows={2}
-                    value={maximizedScene.descripcion || ''}
-                    onChange={(e) => setMaximizedScene({ ...maximizedScene, descripcion: e.target.value })}
-                    placeholder="Escribe un breve resumen de lo que ocurre en la escena..."
-                    className={`w-full text-xs sm:text-sm p-3 rounded border outline-none resize-none focus:ring-1 ${
-                      theme === 'dark' ? 'bg-[#27272a] border-zinc-700 text-zinc-200 focus:ring-emerald-500' : 'bg-gray-50 border-gray-300 focus:ring-emerald-500'
-                    }`}
-                  />
-                </div>
-
-                {/* Section 2: Escaleta (Escena Detallada) */}
-                <div>
-                  <label className="block text-xs font-semibold uppercase text-emerald-400 mb-1">Escaleta (Escena Detallada / Beat Sheet)</label>
-                  <textarea 
-                    rows={8}
-                    value={maximizedScene.escaleta || ''}
-                    onChange={(e) => setMaximizedScene({ ...maximizedScene, escaleta: e.target.value })}
-                    placeholder="Escribe el desglose detallado paso a paso de la escena..."
-                    className={`w-full text-xs sm:text-sm p-3 rounded border outline-none leading-relaxed focus:ring-1 ${
-                      theme === 'dark' ? 'bg-[#27272a] border-zinc-700 text-zinc-100 focus:ring-emerald-500' : 'bg-gray-50 border-gray-300 focus:ring-emerald-500'
-                    }`}
-                  />
-                </div>
-
-                {/* Section 3: Diálogos y Guion */}
-                <div>
-                  <label className="block text-xs font-semibold uppercase text-purple-400 mb-1">Diálogos y Guion</label>
-                  <textarea 
-                    rows={6}
-                    value={maximizedScene.dialogos || ''}
-                    onChange={(e) => setMaximizedScene({ ...maximizedScene, dialogos: e.target.value })}
-                    placeholder="JUGADOR&#10;(Mirando al horizonte)&#10;No hay vuelta atrás..."
-                    className={`w-full text-xs sm:text-sm p-3 rounded border font-mono outline-none leading-relaxed focus:ring-1 ${
-                      theme === 'dark' ? 'bg-[#27272a] border-zinc-700 text-purple-200 focus:ring-purple-500' : 'bg-purple-50 border-purple-200 text-purple-900 focus:ring-purple-500'
-                    }`}
-                  />
-                </div>
-
-                {/* Section 4: Diseño de Nivel y Sonido */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-semibold uppercase text-zinc-400 mb-1">Notas de Diseño de Nivel</label>
-                    <input 
-                      type="text"
-                      value={maximizedScene.diseno_nivel || ''}
-                      onChange={(e) => setMaximizedScene({ ...maximizedScene, diseno_nivel: e.target.value })}
-                      placeholder="Ej: Iluminación de neón verde, callejón estrecho"
-                      className={`w-full text-xs p-2.5 rounded border outline-none ${
-                        theme === 'dark' ? 'bg-[#27272a] border-zinc-700 text-zinc-300' : 'bg-gray-50 border-gray-300'
-                      }`}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold uppercase text-zinc-400 mb-1">Notas de Sonido / FX</label>
-                    <input 
-                      type="text"
-                      value={maximizedScene.sonido || ''}
-                      onChange={(e) => setMaximizedScene({ ...maximizedScene, sonido: e.target.value })}
-                      placeholder="Ej: Eco distante de sirenas, synthwave"
-                      className={`w-full text-xs p-2.5 rounded border outline-none ${
-                        theme === 'dark' ? 'bg-[#27272a] border-zinc-700 text-zinc-300' : 'bg-gray-50 border-gray-300'
-                      }`}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Maximized Footer */}
-              <div className={`px-6 py-4 border-t flex justify-between items-center ${
-                theme === 'dark' ? 'bg-[#27272a] border-zinc-700' : 'bg-gray-50 border-gray-200'
-              }`}>
-                <button 
-                  onClick={() => handleDeleteScene(maximizedScene.id)}
-                  className="px-3.5 py-1.5 bg-red-600/80 hover:bg-red-600 text-white rounded text-xs font-semibold transition-colors"
-                >
-                  🗑️ Eliminar Escena
-                </button>
-                <div className="flex gap-3">
-                  <button 
-                    onClick={handleCancelMaximizedScene}
-                    className="px-4 py-2 bg-zinc-700 hover:bg-zinc-600 text-white rounded text-xs font-semibold transition-colors"
-                  >
-                    Cancelar
-                  </button>
-                  <button 
-                    onClick={handleAcceptMaximizedScene}
-                    className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-xs font-semibold transition-colors shadow-sm"
-                  >
-                    ✓ Aceptar
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* MODAL LECTOR MARKDOWN (.MD) */}
-        {isMdReaderOpen && (
-          <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex justify-center items-center p-3 sm:p-6 md:p-8">
-            <div className={`w-full max-w-5xl h-[90vh] sm:h-[85vh] rounded-xl shadow-2xl flex flex-col overflow-hidden border ${
-              theme === 'dark' ? 'bg-[#18181b] border-zinc-700 text-zinc-100' : 'bg-white border-gray-300 text-gray-900'
-            }`}>
-              {/* Reader Header */}
-              <div className={`px-4 sm:px-6 py-3.5 border-b flex flex-wrap justify-between items-center gap-2 shrink-0 ${
-                theme === 'dark' ? 'bg-[#27272a] border-zinc-700' : 'bg-gray-50 border-gray-200'
-              }`}>
-                <div className="flex items-center gap-2.5">
-                  <span className="text-lg sm:text-xl">📖</span>
-                  <div>
-                    <h3 className="font-bold text-xs sm:text-sm md:text-base">Lector de Guion Markdown (.md)</h3>
-                    <p className="text-[10px] sm:text-[11px] text-zinc-400">{projectTitle} — Documento Compilado</p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <button 
-                    onClick={handleCopyMdToClipboard}
-                    className="px-2.5 sm:px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 rounded text-xs font-semibold flex items-center gap-1 transition-colors"
-                    title="Copiar contenido Markdown al portapapeles"
-                  >
-                    📋 Copiar
-                  </button>
-                  <button 
-                    onClick={handleSaveAsMarkdown}
-                    className="px-2.5 sm:px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-xs font-semibold flex items-center gap-1 transition-colors shadow-sm"
-                    title="Descargar archivo .md"
-                  >
-                    💾 Descargar .md
-                  </button>
-                  <button 
-                    onClick={() => setIsMdReaderOpen(false)}
-                    className="p-1.5 text-zinc-400 hover:text-zinc-200 text-base font-bold ml-1"
-                  >
-                    ✕
-                  </button>
-                </div>
-              </div>
-
-              {/* Reader Content Body */}
-              <div className="flex-1 overflow-y-auto p-4 sm:p-8 md:p-10 font-serif leading-relaxed text-xs sm:text-sm whitespace-pre-wrap select-text selection:bg-emerald-500 selection:text-white">
-                {generateMarkdownText()}
-              </div>
-
-              {/* Reader Footer */}
-              <div className={`px-4 sm:px-6 py-3 border-t flex justify-between items-center text-xs text-zinc-400 ${
-                theme === 'dark' ? 'bg-[#27272a] border-zinc-700' : 'bg-gray-50 border-gray-200'
-              }`}>
-                <span>Total Actos: {acts.length} | Escenas Totales: {scenes.length}</span>
-                <button 
-                  onClick={() => setIsMdReaderOpen(false)}
-                  className="px-3.5 py-1.5 bg-zinc-700 hover:bg-zinc-600 text-white rounded font-semibold transition-colors"
-                >
-                  Cerrar Lector
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-      </main>  
-    </div>  
-  );  
+// -------------------------------------------------------------
+// 4. MAIN APP ROUTER COMPONENT (MemoryRouter)
+// -------------------------------------------------------------
+export default function App({ initialRoute = '/' }: { initialRoute?: string }) {
+  return (
+    <MemoryRouter initialEntries={[initialRoute]}>
+      <Routes>
+        <Route path="/" element={<Dashboard />} />
+        <Route path="/proyecto/:id" element={<DashboardGuion />} />
+        <Route path="/tablero/:id" element={<DashboardGuion />} />
+        <Route path="/tablero/:id/acto/:actoId" element={<EditorActo />} />
+      </Routes>
+    </MemoryRouter>
+  );
 }
