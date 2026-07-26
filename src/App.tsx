@@ -424,6 +424,7 @@ export function DashboardGuion() {
   const [isSaveAsModalOpen, setIsSaveAsModalOpen] = useState(false);
   const [saveAsTitleInput, setSaveAsTitleInput] = useState('');
   const [isMdReaderOpen, setIsMdReaderOpen] = useState(false);
+  const [previewTab, setPreviewTab] = useState<'formatted' | 'raw' | 'json'>('formatted');
   const [theme, setTheme] = useState<'light' | 'dark'>('dark');
   const [isAiOpen, setIsAiOpen] = useState(false);
   const [notification, setNotification] = useState<string | null>(null);
@@ -603,6 +604,77 @@ export function DashboardGuion() {
       }
     });
     return md;
+  };
+
+  const generateProjectJson = () => {
+    const data: ProjectData = {
+      id: projectId,
+      title: projectTitle,
+      synopsis: projectSynopsis,
+      acts,
+      scenes,
+      updatedAt: new Date().toISOString(),
+    };
+    return JSON.stringify(data, null, 2);
+  };
+
+  const applyInlineStyles = (text: string): React.ReactNode => {
+    const parts: React.ReactNode[] = [];
+    let remaining = text;
+    let keyIdx = 0;
+    const regex = /(\*\*(.+?)\*\*|\*(.+?)\*|`(.+?)`)/g;
+    let lastIndex = 0;
+    let match;
+    while ((match = regex.exec(remaining)) !== null) {
+      if (match.index > lastIndex) {
+        parts.push(remaining.slice(lastIndex, match.index));
+      }
+      if (match[2]) {
+        parts.push(<strong key={keyIdx++} className="font-bold text-slate-100">{match[2]}</strong>);
+      } else if (match[3]) {
+        parts.push(<em key={keyIdx++} className="italic text-slate-400">{match[3]}</em>);
+      } else if (match[4]) {
+        parts.push(<code key={keyIdx++} className="bg-slate-800 text-violet-300 px-1.5 py-0.5 rounded text-[11px] font-mono">{match[4]}</code>);
+      }
+      lastIndex = match.index + match[0].length;
+    }
+    if (lastIndex < remaining.length) {
+      parts.push(remaining.slice(lastIndex));
+    }
+    return parts.length > 0 ? parts : text;
+  };
+
+  const renderFormattedMarkdown = (mdText: string) => {
+    const lines = mdText.split('\n');
+    return lines.map((line, i) => {
+      if (line.startsWith('### '))
+        return <h3 key={i} className="text-sm font-bold text-indigo-300 mt-4 mb-1">{applyInlineStyles(line.slice(4))}</h3>;
+      if (line.startsWith('## '))
+        return <h2 key={i} className="text-base font-bold text-violet-300 mt-5 mb-1.5 border-b border-slate-800 pb-1">{applyInlineStyles(line.slice(3))}</h2>;
+      if (line.startsWith('# '))
+        return <h1 key={i} className="text-xl font-black text-white mt-2 mb-2">{applyInlineStyles(line.slice(2))}</h1>;
+      if (line.startsWith('> '))
+        return <blockquote key={i} className="border-l-2 border-amber-500/60 pl-3 text-xs text-amber-200/80 italic my-1">{applyInlineStyles(line.slice(2))}</blockquote>;
+      if (line.trim() === '---')
+        return <hr key={i} className="border-slate-800 my-3" />;
+      if (line.trim().startsWith('```'))
+        return null;
+      if (line.trim() === '')
+        return <div key={i} className="h-2" />;
+      return <p key={i} className="text-xs text-slate-300 leading-relaxed my-0.5">{applyInlineStyles(line)}</p>;
+    });
+  };
+
+  const renderColoredJson = (jsonText: string) => {
+    const colored = jsonText
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"([^"]+)"(?=\s*:)/g, '<span class="text-violet-400">"$1"</span>')
+      .replace(/:\s*"([^"]*)"/g, ': <span class="text-emerald-400">"$1"</span>')
+      .replace(/:\s*(\d+)/g, ': <span class="text-amber-400">$1</span>')
+      .replace(/:\s*(true|false|null)/g, ': <span class="text-rose-400">$1</span>');
+    return <pre className="text-xs leading-relaxed font-mono" dangerouslySetInnerHTML={{ __html: colored }} />;
   };
 
   const handleNewProject = () => {
@@ -795,6 +867,7 @@ export function DashboardGuion() {
                 <hr className="border-slate-800 my-1" />
                 <button
                   onClick={() => {
+                    setPreviewTab('formatted');
                     setIsMdReaderOpen(true);
                     setIsFileMenuOpen(false);
                   }}
@@ -1175,13 +1248,14 @@ export function DashboardGuion() {
         </div>
       )}
 
-      {/* Markdown Reader Modal */}
+      {/* Preview Modal with Tabs */}
       {isMdReaderOpen && (
         <div className="fixed inset-0 bg-black/85 backdrop-blur-sm flex items-center justify-center p-6 z-50">
           <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-4xl max-h-[85vh] flex flex-col shadow-2xl overflow-hidden">
+            {/* Header */}
             <div className="px-6 py-4 bg-slate-900 border-b border-slate-800 flex items-center justify-between">
               <h3 className="text-lg font-bold text-violet-300 flex items-center gap-2">
-                <span>📖</span> Lector de Guion Markdown (.md)
+                <span>📖</span> Vista Previa del Guion
               </h3>
               <button
                 onClick={() => setIsMdReaderOpen(false)}
@@ -1190,18 +1264,64 @@ export function DashboardGuion() {
                 ✕
               </button>
             </div>
-            <div className="flex-1 p-6 overflow-y-auto bg-slate-950 font-mono text-xs text-slate-200 leading-relaxed whitespace-pre-wrap">
-              {generateMarkdownText()}
+
+            {/* Tab Bar */}
+            <div className="flex border-b border-slate-800 bg-slate-900/80 px-6">
+              {([
+                { key: 'formatted' as const, label: '📖 Formateado' },
+                { key: 'raw' as const, label: '📝 Markdown' },
+                { key: 'json' as const, label: '📦 JSON' },
+              ]).map((tab) => (
+                <button
+                  key={tab.key}
+                  onClick={() => setPreviewTab(tab.key)}
+                  className={`px-4 py-2.5 text-xs font-semibold transition-all border-b-2 ${
+                    previewTab === tab.key
+                      ? 'text-violet-300 border-violet-500 bg-violet-950/30'
+                      : 'text-slate-400 border-transparent hover:text-slate-200 hover:border-slate-700'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
             </div>
+
+            {/* Tab Content */}
+            <div className="flex-1 p-6 overflow-y-auto bg-slate-950 scrollbar-hide">
+              {previewTab === 'formatted' && (
+                <div className="prose-custom">
+                  {renderFormattedMarkdown(generateMarkdownText())}
+                </div>
+              )}
+              {previewTab === 'raw' && (
+                <div className="font-mono text-xs text-slate-200 leading-relaxed whitespace-pre-wrap">
+                  {generateMarkdownText()}
+                </div>
+              )}
+              {previewTab === 'json' && (
+                <div className="font-mono text-slate-200">
+                  {renderColoredJson(generateProjectJson())}
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
             <div className="px-6 py-4 bg-slate-900 border-t border-slate-800 flex items-center justify-between">
               <button
                 onClick={() => {
-                  navigator.clipboard.writeText(generateMarkdownText());
-                  showNotification('Copiado al portapapeles');
+                  const content = previewTab === 'json'
+                    ? generateProjectJson()
+                    : generateMarkdownText();
+                  navigator.clipboard.writeText(content);
+                  showNotification(
+                    previewTab === 'json'
+                      ? 'JSON copiado al portapapeles'
+                      : 'Markdown copiado al portapapeles'
+                  );
                 }}
-                className="bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold px-4 py-2 rounded-xl border border-slate-700"
+                className="bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold px-4 py-2 rounded-xl border border-slate-700 flex items-center gap-1.5"
               >
-                📋 Copiar Texto
+                📋 Copiar {previewTab === 'json' ? 'JSON' : 'Markdown'}
               </button>
               <button
                 onClick={() => setIsMdReaderOpen(false)}
