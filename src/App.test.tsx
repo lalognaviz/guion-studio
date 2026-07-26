@@ -45,9 +45,9 @@ describe('GuionStudio App & Unified Script Dashboard', () => {
     expect(screen.getByText('Proyecto Activo')).toBeInTheDocument();
 
     // 3 Act titles
-    expect(screen.getByText('Planteamiento')).toBeInTheDocument();
-    expect(screen.getByText('Confrontación')).toBeInTheDocument();
-    expect(screen.getByText('Resolución')).toBeInTheDocument();
+    expect(screen.getByText(/Planteamiento/i)).toBeInTheDocument();
+    expect(screen.getByText(/Confrontación/i)).toBeInTheDocument();
+    expect(screen.getByText(/Resolución/i)).toBeInTheDocument();
 
     // Plot Points and Sinopsis
     expect(screen.getByText(/La guardia ataca el mercado; el jugador huye a las alcantarillas\./i)).toBeInTheDocument();

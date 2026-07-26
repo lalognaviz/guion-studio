@@ -900,7 +900,7 @@ export function DashboardGuion() {
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <span className={`text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-lg border ${actBadgeStyle}`}>
-                          Acto {act.orden}
+                          Acto {act.orden}: {act.nombre}
                         </span>
                       </div>
                       <span className="text-xs text-slate-400 font-mono">
@@ -1393,9 +1393,6 @@ export function EditorActo() {
           <span className="text-slate-700">|</span>
 
           <div className="flex items-center gap-2">
-            <span className="text-xs font-black uppercase bg-violet-950/70 text-violet-300 px-2.5 py-0.5 rounded-md border border-violet-800/60">
-              Editor Dedicado: Acto {currentAct.orden}
-            </span>
             <h1 className="text-base font-bold text-slate-100">{currentAct.nombre}</h1>
           </div>
         </div>
@@ -1482,7 +1479,7 @@ export function EditorActo() {
         <div className="bg-slate-900/80 backdrop-blur-sm border border-slate-800/80 rounded-2xl p-6 shadow-2xl space-y-5">
           <div className="flex items-center justify-between">
             <h3 className="text-xl font-bold text-slate-100 flex items-center gap-2">
-              <span>🎬</span> Escenas de {currentAct.nombre}
+              Escenas:
             </h3>
             <button
               onClick={handleAddScene}
