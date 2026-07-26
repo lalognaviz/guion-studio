@@ -67,10 +67,11 @@ El proyecto cuenta con cobertura de pruebas automatizadas tanto en el frontend c
   cargo test --manifest-path src-tauri/Cargo.toml
   ```
 
-- **Compilación para Producción**:
+- **Compilación a Ejecutable Windows (.exe)**:
   ```bash
-  npm run build
+  npm run tauri build
   ```
+  *(Genera el binario ejecutable standalone en `src-tauri/target/release/guion-studio.exe` y los paquetes de instalación en `src-tauri/target/release/bundle/`)*
 
 ---
 

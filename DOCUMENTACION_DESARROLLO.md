@@ -95,6 +95,10 @@ Ubicado en el menú desplegable de la barra superior:
 - **Copiar**: Copia el texto al portapapeles con 1 clic.
 - **Descargar .md**: Descarga el guion técnico en archivo plano Markdown.
 
+### 3.6. Gestión de Visibilidad y Borrado de Proyectos en Inicio
+- **👁️ Quitar del Inicio (Ocultar)**: Oculta la tarjeta del proyecto de la pantalla principal de recientes sin eliminar sus archivos ni datos. Permite mantener el tablero limpio y consultar/restaurar proyectos mediante la sección de *"Proyectos quitados del inicio"*.
+- **🗑️ Borrado Definitivo**: Elimina permanentemente el proyecto, sus actos, escenas y registros asociados. Incluye una ventana modal interactiva de confirmación (*"⚠️ Confirmar Borrado Definitivo"*) previa para prevenir destrucciones accidentales.
+
 ---
 
 ## 🧪 4. Guía de Ejecución y Pruebas
@@ -111,10 +115,31 @@ cargo test --manifest-path src-tauri/Cargo.toml
 ```
 *Resultado*: Pruebas de integración y migraciones de SQLite pasadas en `src-tauri/src/main.rs`.
 
-### 4.3. Compilar la Aplicación para Producción
+### 4.3. Compilar la Aplicación para Producción (.exe)
+
+Para generar el ejecutable standalone (`.exe`) de Windows y el paquete de instalación ejecutable:
+
+#### 1. Requisitos Previos en Windows
+- **Node.js**: v18 o superior (`node -v`)
+- **Rust Toolchain**: `rustc` y `cargo` instalados a través de [rustup.rs](https://rustup.rs/)
+- **C++ Build Tools**: Microsoft Visual Studio C++ Build Tools (con la carga de trabajo "Desarrollo para el escritorio con C++")
+- **WebView2**: Incluido por defecto en Windows 10/11 (Runtime para renderizar el frontend)
+
+#### 2. Comando de Compilación
+Ejecuta el comando oficial de compilación de Tauri:
 ```bash
-npm run build
+npm run tauri build
 ```
+
+#### 3. Flujo Automático del Proceso de Compilación
+1. **`beforeBuildCommand`**: Ejecuta `npm run build` (`tsc && vite build`), verificando tipos de TypeScript y generando los activos estáticos optimizados en `dist/`.
+2. **Compilación de Backend en Rust**: `cargo` compila el código Rust (`src-tauri/src/main.rs`) en modo Release con optimizaciones de rendimiento y vinculación estática de SQLite.
+3. **Generación del Ejecutable y Bundles**: Tauri empaqueta el binario `.exe` junto con el frontend y recursos necesarios.
+
+#### 4. Ubicación de los Archivos Generados
+Una vez completado el comando de compilación, los binarios se encuentran en:
+- **Ejecutable Standalone Directo**: `src-tauri/target/release/guion-studio.exe`
+- **Instalador Ejecutable (NSIS/MSI)**: `src-tauri/target/release/bundle/nsis/` o `src-tauri/target/release/bundle/msi/`
 
 ---
 

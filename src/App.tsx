@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { MemoryRouter, Routes, Route, useNavigate, useParams } from 'react-router-dom';
 import { invoke } from '@tauri-apps/api/core';
 
@@ -177,22 +177,94 @@ export function loadProjectFromStorage(id: string | number): ProjectData | null 
   return null;
 }
 
+// Project Visibility & Deletion Storage Helpers
+export function getHiddenProjectIds(): string[] {
+  const raw = localStorage.getItem('guionstudio_hidden_projects');
+  if (raw) {
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return parsed.map(String);
+    } catch (e) {
+      console.error("Error parsing guionstudio_hidden_projects:", e);
+    }
+  }
+  return [];
+}
+
+export function hideProjectFromDashboard(id: string | number) {
+  const hidden = getHiddenProjectIds();
+  const idStr = String(id);
+  if (!hidden.includes(idStr)) {
+    hidden.push(idStr);
+    localStorage.setItem('guionstudio_hidden_projects', JSON.stringify(hidden));
+  }
+}
+
+export function restoreProjectToDashboard(id: string | number) {
+  const hidden = getHiddenProjectIds();
+  const idStr = String(id);
+  const updated = hidden.filter((hId) => hId !== idStr);
+  localStorage.setItem('guionstudio_hidden_projects', JSON.stringify(updated));
+}
+
+export function deleteProjectPermanently(id: string | number) {
+  const map = getStoredProjectsMap();
+  const idStr = String(id);
+  delete map[idStr];
+  const matchedKey = Object.keys(map).find(
+    (k) => k === idStr || `proj-${k}` === idStr || k === idStr.replace('proj-', '')
+  );
+  if (matchedKey) {
+    delete map[matchedKey];
+  }
+  localStorage.setItem('guionstudio_projects_map', JSON.stringify(map));
+  restoreProjectToDashboard(id);
+
+  const activeRaw = localStorage.getItem('guionstudio_active_project');
+  if (activeRaw) {
+    try {
+      const active = JSON.parse(activeRaw);
+      if (active && String(active.id) === idStr) {
+        localStorage.removeItem('guionstudio_active_project');
+      }
+    } catch (e) {}
+  }
+}
+
+export function fetchProyectosOcultos(): ProyectoResumen[] {
+  const map = getStoredProjectsMap();
+  const hiddenIds = getHiddenProjectIds();
+  return Object.values(map)
+    .filter((p) => hiddenIds.includes(String(p.id)))
+    .map((p) => ({
+      id: p.id,
+      titulo: p.title,
+      sinopsis: p.synopsis,
+      ruta_archivo: `/proyectos/${p.title.toLowerCase().replace(/\s+/g, '_')}.json`,
+      creado_en: p.createdAt || p.updatedAt || '2026-07-25 12:00:00',
+    }));
+}
+
 // IPC Helper Functions
 export async function fetchProyectosRecientes(): Promise<ProyectoResumen[]> {
   const map = getStoredProjectsMap();
-  const localProjects: ProyectoResumen[] = Object.values(map).map((p) => ({
-    id: p.id,
-    titulo: p.title,
-    sinopsis: p.synopsis,
-    ruta_archivo: `/proyectos/${p.title.toLowerCase().replace(/\s+/g, '_')}.json`,
-    creado_en: p.createdAt || p.updatedAt || '2026-07-25 12:00:00',
-  }));
+  const hiddenIds = getHiddenProjectIds();
+  const localProjects: ProyectoResumen[] = Object.values(map)
+    .filter((p) => !hiddenIds.includes(String(p.id)))
+    .map((p) => ({
+      id: p.id,
+      titulo: p.title,
+      sinopsis: p.synopsis,
+      ruta_archivo: `/proyectos/${p.title.toLowerCase().replace(/\s+/g, '_')}.json`,
+      creado_en: p.createdAt || p.updatedAt || '2026-07-25 12:00:00',
+    }));
 
   try {
     const ipcProjects = await invoke<ProyectoResumen[]>('obtener_proyectos_recientes');
     if (Array.isArray(ipcProjects) && ipcProjects.length > 0) {
       const mergedMap = new Map<string, ProyectoResumen>();
       for (const p of ipcProjects) {
+        if (hiddenIds.includes(String(p.id))) continue;
         const stored = map[String(p.id)];
         if (stored) {
           mergedMap.set(String(p.id), {
@@ -274,30 +346,63 @@ export async function fetchDetallesProyecto(proyectoId: number): Promise<Proyect
 // -------------------------------------------------------------
 export function Dashboard() {
   const [proyectos, setProyectos] = useState<ProyectoResumen[]>([]);
+  const [proyectosOcultos, setProyectosOcultos] = useState<ProyectoResumen[]>([]);
+  const [showOcultos, setShowOcultos] = useState<boolean>(false);
+  const [projectToDelete, setProjectToDelete] = useState<ProyectoResumen | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [notificacion, setNotificacion] = useState<string | null>(null);
   const navigate = useNavigate();
 
-  useEffect(() => {
-    let isMounted = true;
+  const loadProjectsData = useCallback(() => {
     setLoading(true);
     fetchProyectosRecientes()
       .then((data) => {
-        if (isMounted) {
-          setProyectos(data);
-          setLoading(false);
-        }
+        setProyectos(data);
+        setProyectosOcultos(fetchProyectosOcultos());
+        setLoading(false);
       })
       .catch(() => {
-        if (isMounted) {
-          setError("Error al cargar los proyectos recientes.");
-          setLoading(false);
-        }
+        setError("Error al cargar los proyectos recientes.");
+        setLoading(false);
       });
-    return () => {
-      isMounted = false;
-    };
   }, []);
+
+  useEffect(() => {
+    loadProjectsData();
+  }, [loadProjectsData]);
+
+  const showToast = (msg: string) => {
+    setNotificacion(msg);
+    setTimeout(() => setNotificacion(null), 3500);
+  };
+
+  const handleHideProject = (p: ProyectoResumen, e: React.MouseEvent) => {
+    e.stopPropagation();
+    hideProjectFromDashboard(p.id);
+    loadProjectsData();
+    showToast(`El proyecto "${p.titulo}" se quitó de la vista de inicio.`);
+  };
+
+  const handleRestoreProject = (p: ProyectoResumen, e: React.MouseEvent) => {
+    e.stopPropagation();
+    restoreProjectToDashboard(p.id);
+    loadProjectsData();
+    showToast(`El proyecto "${p.titulo}" fue restaurado a la vista de inicio.`);
+  };
+
+  const confirmDeleteProject = (p: ProyectoResumen, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setProjectToDelete(p);
+  };
+
+  const handleExecuteDelete = () => {
+    if (!projectToDelete) return;
+    deleteProjectPermanently(projectToDelete.id);
+    showToast(`El proyecto "${projectToDelete.titulo}" ha sido eliminado definitivamente.`);
+    setProjectToDelete(null);
+    loadProjectsData();
+  };
 
   const handleCreateNewProject = () => {
     const newId = `proj-${Date.now()}`;
@@ -316,6 +421,48 @@ export function Dashboard() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-violet-500/30 selection:text-violet-200">
+      {/* Toast notification */}
+      {notificacion && (
+        <div className="fixed bottom-5 right-5 z-50 bg-slate-900 border border-violet-500/50 text-slate-100 text-xs font-semibold px-4 py-3 rounded-xl shadow-2xl flex items-center gap-2 animate-bounce">
+          <span className="text-violet-400">✨</span>
+          <span>{notificacion}</span>
+        </div>
+      )}
+
+      {/* Confirmation Modal for Permanent Deletion */}
+      {projectToDelete && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="p-3 bg-rose-500/10 text-rose-400 border border-rose-500/20 rounded-xl text-xl">
+                ⚠️
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-slate-100">Confirmar Borrado Definitivo</h3>
+                <p className="text-xs text-slate-400">Esta acción no se puede deshacer.</p>
+              </div>
+            </div>
+            <p className="text-xs text-slate-300 leading-relaxed bg-slate-950/50 p-3 rounded-xl border border-slate-800">
+              ¿Estás seguro de que deseas eliminar permanentemente el proyecto <strong className="text-white">{projectToDelete.titulo}</strong>? Se borrarán todos sus datos, actos y escenas guardados.
+            </p>
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                onClick={() => setProjectToDelete(null)}
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-xl border border-slate-700 transition"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleExecuteDelete}
+                className="px-4 py-2 bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 text-white text-xs font-bold rounded-xl shadow-lg shadow-rose-950/50 transition flex items-center gap-1.5"
+              >
+                🗑️ Eliminar Definitivamente
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Top Navbar */}
       <header className="bg-slate-900/90 backdrop-blur-md border-b border-slate-800 px-6 py-4 flex items-center justify-between shadow-xl sticky top-0 z-40">
         <div className="flex items-center gap-3">
@@ -343,7 +490,50 @@ export function Dashboard() {
             <h2 className="text-2xl font-black text-slate-100 tracking-tight">Proyectos Recientes</h2>
             <p className="text-xs text-slate-400 mt-1">Accede a tus proyectos narrativos y guiones estructurados.</p>
           </div>
+          {proyectosOcultos.length > 0 && (
+            <button
+              onClick={() => setShowOcultos(!showOcultos)}
+              className="text-xs font-semibold text-slate-400 hover:text-slate-200 bg-slate-900 border border-slate-800 px-3 py-1.5 rounded-xl transition flex items-center gap-1.5"
+            >
+              <span>👁️</span>
+              {showOcultos ? 'Ocultar sección de ignorados' : `Proyectos quitados del inicio (${proyectosOcultos.length})`}
+            </button>
+          )}
         </div>
+
+        {/* Section for Hidden Projects if toggled */}
+        {showOcultos && proyectosOcultos.length > 0 && (
+          <div className="mb-8 p-5 bg-slate-900/60 border border-slate-800 rounded-2xl">
+            <h3 className="text-sm font-bold text-slate-300 mb-3 flex items-center gap-2">
+              <span>👁️</span> Proyectos Quitados de la Vista de Inicio
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {proyectosOcultos.map((p) => (
+                <div key={p.id} className="bg-slate-950/60 border border-slate-800/80 rounded-xl p-4 flex flex-col justify-between">
+                  <div>
+                    <h4 className="text-sm font-bold text-slate-200">{p.titulo}</h4>
+                    {p.sinopsis && <p className="text-xs text-slate-400 line-clamp-1 mt-1">{p.sinopsis}</p>}
+                  </div>
+                  <div className="flex items-center gap-2 pt-3 mt-3 border-t border-slate-800/60">
+                    <button
+                      onClick={(e) => handleRestoreProject(p, e)}
+                      className="flex-1 bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 text-xs font-semibold py-1.5 px-3 rounded-lg border border-indigo-500/30 transition text-center"
+                    >
+                      Restaurar al inicio
+                    </button>
+                    <button
+                      onClick={(e) => confirmDeleteProject(p, e)}
+                      className="bg-rose-950/40 hover:bg-rose-900/60 text-rose-400 text-xs p-1.5 rounded-lg border border-rose-800/40 transition"
+                      title="Borrado definitivo"
+                    >
+                      🗑️
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {loading ? (
           <div className="flex items-center justify-center p-16 bg-slate-900/60 backdrop-blur-sm rounded-2xl border border-slate-800/80 shadow-2xl">
@@ -358,7 +548,7 @@ export function Dashboard() {
           </div>
         ) : proyectos.length === 0 ? (
           <div className="p-12 text-center bg-slate-900/40 rounded-2xl border border-slate-800/80 text-slate-400 shadow-xl">
-            No hay proyectos recientes registrados en la base de datos.
+            No hay proyectos visibles en la vista de inicio.
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -388,12 +578,26 @@ export function Dashboard() {
                     <span>📅</span> Creado: {p.creado_en}
                   </p>
                 </div>
-                <div className="pt-4 border-t border-slate-800/80">
+                <div className="pt-4 border-t border-slate-800/80 flex items-center gap-2">
                   <button
                     onClick={() => navigate(`/tablero/${p.id}`)}
-                    className="w-full bg-slate-800/90 hover:bg-gradient-to-r hover:from-violet-600 hover:to-indigo-600 text-slate-200 hover:text-white text-xs font-bold py-2.5 px-4 rounded-xl border border-slate-700/80 hover:border-transparent transition-all duration-200 text-center shadow-sm"
+                    className="flex-1 bg-slate-800/90 hover:bg-gradient-to-r hover:from-violet-600 hover:to-indigo-600 text-slate-200 hover:text-white text-xs font-bold py-2.5 px-4 rounded-xl border border-slate-700/80 hover:border-transparent transition-all duration-200 text-center shadow-sm"
                   >
                     Abrir
+                  </button>
+                  <button
+                    onClick={(e) => handleHideProject(p, e)}
+                    className="bg-slate-800/80 hover:bg-slate-700 text-slate-300 text-xs p-2.5 rounded-xl border border-slate-700/80 transition"
+                    title="Quitar de la vista de inicio"
+                  >
+                    👁️ Quitar
+                  </button>
+                  <button
+                    onClick={(e) => confirmDeleteProject(p, e)}
+                    className="bg-rose-950/40 hover:bg-rose-900/60 text-rose-400 hover:text-rose-200 text-xs p-2.5 rounded-xl border border-rose-800/40 transition"
+                    title="Borrado definitivo"
+                  >
+                    🗑️
                   </button>
                 </div>
               </div>

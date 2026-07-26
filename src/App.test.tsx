@@ -182,4 +182,45 @@ describe('GuionStudio App & Unified Script Dashboard', () => {
       expect(screen.getByText('Nueva sinopsis de CyberNights en el futuro')).toBeInTheDocument();
     });
   });
+
+  it('allows hiding a project from home Dashboard with "Quitar" button', async () => {
+    render(<App initialRoute="/" />);
+    await waitFor(() => {
+      expect(screen.getByText('CyberNights')).toBeInTheDocument();
+    });
+
+    const hideBtns = screen.getAllByRole('button', { name: /Quitar/i });
+    expect(hideBtns.length).toBeGreaterThan(0);
+    fireEvent.click(hideBtns[0]);
+
+    await waitFor(() => {
+      expect(screen.queryByText('CyberNights')).not.toBeInTheDocument();
+    });
+    expect(screen.getByText(/Proyectos quitados del inicio/i)).toBeInTheDocument();
+  });
+
+  it('allows deleting a project permanently with modal confirmation', async () => {
+    render(<App initialRoute="/" />);
+    await waitFor(() => {
+      expect(screen.getByText('Shadow Realm')).toBeInTheDocument();
+    });
+
+    const deleteBtns = screen.getAllByRole('button', { name: '🗑️' });
+    expect(deleteBtns.length).toBeGreaterThan(0);
+    
+    // Click 🗑️ on second card (Shadow Realm)
+    fireEvent.click(deleteBtns[1]);
+
+    // Modal confirmation opens
+    expect(screen.getByText(/Confirmar Borrado Definitivo/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/Shadow Realm/i).length).toBeGreaterThan(0);
+
+    // Click confirm delete button inside modal
+    const confirmDeleteBtn = screen.getByRole('button', { name: /Eliminar Definitivamente/i });
+    fireEvent.click(confirmDeleteBtn);
+
+    await waitFor(() => {
+      expect(screen.queryByText('Shadow Realm')).not.toBeInTheDocument();
+    });
+  });
 });
