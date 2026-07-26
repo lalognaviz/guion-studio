@@ -144,4 +144,42 @@ describe('GuionStudio App & Unified Script Dashboard', () => {
 
     expect(screen.getByText(/Guion guardado como "CyberNights\.md"/i)).toBeInTheDocument();
   });
+
+  it('persists newly created projects so they appear in the Dashboard list', async () => {
+    render(<App initialRoute="/" />);
+    const newProjBtn = screen.getByRole('button', { name: /\+ Nuevo Guion/i });
+    fireEvent.click(newProjBtn);
+
+    // Edit title of newly created project
+    const titleInput = screen.getByDisplayValue('Nuevo Proyecto Guion');
+    fireEvent.change(titleInput, { target: { value: 'Proyecto Fantasma' } });
+
+    // Navigate back to Dashboard
+    const backBtn = screen.getByRole('button', { name: /← Proyectos/i });
+    fireEvent.click(backBtn);
+
+    // Verify 'Proyecto Fantasma' appears in Dashboard list
+    await waitFor(() => {
+      expect(screen.getByText('Proyecto Fantasma')).toBeInTheDocument();
+    });
+  });
+
+  it('persists edited project title and synopsis on the Dashboard list', async () => {
+    render(<App initialRoute="/tablero/1" />);
+
+    const titleInput = screen.getByDisplayValue('CyberNights');
+    fireEvent.change(titleInput, { target: { value: 'CyberNights 2077' } });
+
+    const synopsisInput = screen.getByDisplayValue(/Un thriller cyberpunk sobre conspiraciones corporativas/i);
+    fireEvent.change(synopsisInput, { target: { value: 'Nueva sinopsis de CyberNights en el futuro' } });
+
+    // Navigate back to Dashboard
+    const backBtn = screen.getByRole('button', { name: /← Proyectos/i });
+    fireEvent.click(backBtn);
+
+    await waitFor(() => {
+      expect(screen.getByText('CyberNights 2077')).toBeInTheDocument();
+      expect(screen.getByText('Nueva sinopsis de CyberNights en el futuro')).toBeInTheDocument();
+    });
+  });
 });

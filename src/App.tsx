@@ -4,9 +4,10 @@ import { invoke } from '@tauri-apps/api/core';
 
 // Types for IPC Rust Models
 export type ProyectoResumen = {
-  id: number;
+  id: number | string;
   titulo: string;
   ruta_archivo?: string | null;
+  sinopsis?: string;
   creado_en: string;
 };
 
@@ -48,12 +49,13 @@ export type Act = {
 };
 
 export type ProjectData = {
-  id: string;
+  id: string | number;
   title: string;
   synopsis?: string;
   acts: Act[];
   scenes: Scene[];
   updatedAt: string;
+  createdAt?: string;
 };
 
 const INITIAL_ACTS: Act[] = [
@@ -112,20 +114,127 @@ const INITIAL_SCENES: Scene[] = [
   },  
 ];
 
+// Helper functions for localStorage multi-project persistence
+export const DEFAULT_PROJECTS_MAP: Record<string, ProjectData> = {
+  '1': {
+    id: 1,
+    title: 'CyberNights',
+    synopsis: 'Un thriller cyberpunk sobre conspiraciones corporativas.',
+    acts: INITIAL_ACTS,
+    scenes: INITIAL_SCENES,
+    updatedAt: new Date().toISOString(),
+    createdAt: '2026-07-25 12:00:00',
+  },
+  '2': {
+    id: 2,
+    title: 'Shadow Realm',
+    synopsis: 'Fantasía oscura y supervivencia en el reino de las sombras.',
+    acts: [
+      { id: 'act-4', orden: 1, nombre: 'El Despertar', sinopsis: 'Despertar en la oscuridad.', plot_point: 'Encuentro con la sombra.' },
+      { id: 'act-5', orden: 2, nombre: 'La Caída', sinopsis: 'Descenso al abismo.', plot_point: 'Traición del aliado.' },
+      { id: 'act-6', orden: 3, nombre: 'El Eclipse', sinopsis: 'Batalla final contra la sombra.', plot_point: 'El eclipse total.' },
+    ],
+    scenes: [],
+    updatedAt: new Date().toISOString(),
+    createdAt: '2026-07-25 11:30:00',
+  },
+};
+
+export function getStoredProjectsMap(): Record<string, ProjectData> {
+  const raw = localStorage.getItem('guionstudio_projects_map');
+  if (raw) {
+    try {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object' && Object.keys(parsed).length > 0) {
+        return parsed;
+      }
+    } catch (e) {
+      console.error("Error parsing guionstudio_projects_map:", e);
+    }
+  }
+  localStorage.setItem('guionstudio_projects_map', JSON.stringify(DEFAULT_PROJECTS_MAP));
+  return DEFAULT_PROJECTS_MAP;
+}
+
+export function saveProjectToStorage(project: ProjectData) {
+  const map = getStoredProjectsMap();
+  map[String(project.id)] = project;
+  localStorage.setItem('guionstudio_projects_map', JSON.stringify(map));
+  localStorage.setItem('guionstudio_active_project', JSON.stringify(project));
+}
+
+export function loadProjectFromStorage(id: string | number): ProjectData | null {
+  const map = getStoredProjectsMap();
+  const idStr = String(id);
+  if (map[idStr]) {
+    return map[idStr];
+  }
+  const keys = Object.keys(map);
+  const matchedKey = keys.find((k) => k === idStr || `proj-${k}` === idStr || k === idStr.replace('proj-', ''));
+  if (matchedKey && map[matchedKey]) {
+    return map[matchedKey];
+  }
+  return null;
+}
+
 // IPC Helper Functions
 export async function fetchProyectosRecientes(): Promise<ProyectoResumen[]> {
+  const map = getStoredProjectsMap();
+  const localProjects: ProyectoResumen[] = Object.values(map).map((p) => ({
+    id: p.id,
+    titulo: p.title,
+    sinopsis: p.synopsis,
+    ruta_archivo: `/proyectos/${p.title.toLowerCase().replace(/\s+/g, '_')}.json`,
+    creado_en: p.createdAt || p.updatedAt || '2026-07-25 12:00:00',
+  }));
+
   try {
-    return await invoke<ProyectoResumen[]>('obtener_proyectos_recientes');
+    const ipcProjects = await invoke<ProyectoResumen[]>('obtener_proyectos_recientes');
+    if (Array.isArray(ipcProjects) && ipcProjects.length > 0) {
+      const mergedMap = new Map<string, ProyectoResumen>();
+      for (const p of ipcProjects) {
+        const stored = map[String(p.id)];
+        if (stored) {
+          mergedMap.set(String(p.id), {
+            id: stored.id,
+            titulo: stored.title,
+            sinopsis: stored.synopsis,
+            ruta_archivo: p.ruta_archivo || `/proyectos/${stored.title.toLowerCase().replace(/\s+/g, '_')}.json`,
+            creado_en: p.creado_en || stored.createdAt || stored.updatedAt,
+          });
+        } else {
+          mergedMap.set(String(p.id), p);
+        }
+      }
+      for (const p of localProjects) {
+        if (!mergedMap.has(String(p.id))) {
+          mergedMap.set(String(p.id), p);
+        }
+      }
+      return Array.from(mergedMap.values());
+    }
   } catch (e) {
-    console.warn("IPC unavailable, using fallback projects:", e);
-    return [
-      { id: 1, titulo: 'CyberNights', ruta_archivo: '/proyectos/cybernights.json', creado_en: '2026-07-25 12:00:00' },
-      { id: 2, titulo: 'Shadow Realm', ruta_archivo: '/proyectos/shadow.json', creado_en: '2026-07-25 11:30:00' },
-    ];
+    console.warn("IPC unavailable, using localStorage projects:", e);
   }
+  return localProjects;
 }
 
 export async function fetchDetallesProyecto(proyectoId: number): Promise<ProyectoDetalle> {
+  const loaded = loadProjectFromStorage(proyectoId);
+  if (loaded) {
+    return {
+      id: Number(loaded.id) || proyectoId,
+      titulo: loaded.title,
+      ruta_archivo: `/proyectos/${loaded.title.toLowerCase().replace(/\s+/g, '_')}.json`,
+      sinopsis: loaded.synopsis || '',
+      actos: loaded.acts.map((a) => ({
+        id: typeof a.id === 'number' ? a.id : parseInt(String(a.id).replace('act-', ''), 10) || 1,
+        titulo: a.nombre,
+        orden: a.orden,
+      })),
+    };
+  }
+
   try {
     return await invoke<ProyectoDetalle>('obtener_detalles_proyecto', {
       proyectoId: proyectoId,
@@ -199,8 +308,9 @@ export function Dashboard() {
       acts: INITIAL_ACTS,
       scenes: [],
       updatedAt: new Date().toISOString(),
+      createdAt: new Date().toLocaleString(),
     };
-    localStorage.setItem('guionstudio_active_project', JSON.stringify(newProject));
+    saveProjectToStorage(newProject);
     navigate(`/tablero/${newId}`);
   };
 
@@ -265,10 +375,12 @@ export function Dashboard() {
                     >
                       {p.titulo}
                     </h3>
-                    <span className="bg-slate-800/80 text-slate-400 text-[10px] px-2.5 py-1 rounded-md font-mono border border-slate-700/60">
-                      #{p.id}
-                    </span>
                   </div>
+                  {p.sinopsis && (
+                    <p className="text-xs text-slate-300 mb-3 line-clamp-2 leading-relaxed">
+                      {p.sinopsis}
+                    </p>
+                  )}
                   <p className="text-xs text-slate-400 mb-3 truncate flex items-center gap-1.5 font-mono">
                     <span className="text-indigo-400">📁</span> {p.ruta_archivo || 'Sin ruta definida'}
                   </p>
@@ -300,7 +412,7 @@ export function DashboardGuion() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
-  const [projectId, setProjectId] = useState<string>(id || 'proj-1');
+  const [projectId, setProjectId] = useState<string | number>(id || 'proj-1');
   const [projectTitle, setProjectTitle] = useState<string>('CyberNights');
   const [projectSynopsis, setProjectSynopsis] = useState<string>('Un thriller cyberpunk sobre conspiraciones corporativas y redes de clonación subterráneas.');
   const [acts, setActs] = useState<Act[]>(INITIAL_ACTS);
@@ -321,12 +433,24 @@ export function DashboardGuion() {
 
   // Load project from localStorage or IPC on mount
   useEffect(() => {
+    if (id) {
+      const loaded = loadProjectFromStorage(id);
+      if (loaded) {
+        setProjectId(loaded.id);
+        setProjectTitle(loaded.title);
+        if (loaded.synopsis !== undefined) setProjectSynopsis(loaded.synopsis);
+        setActs(loaded.acts);
+        setScenes(loaded.scenes);
+        return;
+      }
+    }
+
     const saved = localStorage.getItem('guionstudio_active_project');
     if (saved) {
       try {
         const data: ProjectData = JSON.parse(saved);
         if (data.title && Array.isArray(data.acts) && Array.isArray(data.scenes)) {
-          if (!id || data.id === id || id.startsWith('proj-') || id.startsWith('new-')) {
+          if (!id || String(data.id) === String(id) || id.startsWith('proj-') || id.startsWith('new-')) {
             setProjectId(data.id || `proj-${id || '1'}`);
             setProjectTitle(data.title);
             if (data.synopsis !== undefined) setProjectSynopsis(data.synopsis);
@@ -393,7 +517,7 @@ export function DashboardGuion() {
       scenes: newScenes,
       updatedAt: new Date().toISOString(),
     };
-    localStorage.setItem('guionstudio_active_project', JSON.stringify(data));
+    saveProjectToStorage(data);
   };
 
   // Scene Operations inside Dashboard
@@ -498,8 +622,9 @@ export function DashboardGuion() {
         acts: INITIAL_ACTS,
         scenes: [],
         updatedAt: new Date().toISOString(),
+        createdAt: new Date().toLocaleString(),
       };
-      localStorage.setItem('guionstudio_active_project', JSON.stringify(newProject));
+      saveProjectToStorage(newProject);
       showNotification('Nuevo proyecto creado');
       setIsFileMenuOpen(false);
       navigate(`/tablero/${newId}`);
@@ -515,7 +640,7 @@ export function DashboardGuion() {
       scenes,
       updatedAt: new Date().toISOString(),
     };
-    localStorage.setItem('guionstudio_active_project', JSON.stringify(data));
+    saveProjectToStorage(data);
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -529,25 +654,26 @@ export function DashboardGuion() {
 
   const handleSaveAsSubmit = () => {
     if (!saveAsTitleInput.trim()) return;
-    setProjectTitle(saveAsTitleInput.trim());
+    const newTitle = saveAsTitleInput.trim();
+    setProjectTitle(newTitle);
     const data: ProjectData = {
       id: projectId,
-      title: saveAsTitleInput.trim(),
+      title: newTitle,
       synopsis: projectSynopsis,
       acts,
       scenes,
       updatedAt: new Date().toISOString(),
     };
-    localStorage.setItem('guionstudio_active_project', JSON.stringify(data));
+    saveProjectToStorage(data);
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${saveAsTitleInput.trim().toLowerCase().replace(/\s+/g, '_')}.json`;
+    a.download = `${newTitle.toLowerCase().replace(/\s+/g, '_')}.json`;
     a.click();
     URL.revokeObjectURL(url);
     setIsSaveAsModalOpen(false);
-    showNotification(`Proyecto guardado como "${saveAsTitleInput.trim()}"`);
+    showNotification(`Proyecto guardado como "${newTitle}"`);
   };
 
   const handleOpenJson = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -559,12 +685,18 @@ export function DashboardGuion() {
         const content = e.target?.result as string;
         const data: ProjectData = JSON.parse(content);
         if (data.title && Array.isArray(data.acts) && Array.isArray(data.scenes)) {
-          setProjectId(data.id || `proj-${Date.now()}`);
-          setProjectTitle(data.title);
-          if (data.synopsis !== undefined) setProjectSynopsis(data.synopsis);
-          setActs(data.acts);
-          setScenes(data.scenes);
-          showNotification(`Proyecto "${data.title}" cargado correctamente`);
+          const loadedId = data.id || `proj-${Date.now()}`;
+          const loadedData: ProjectData = {
+            ...data,
+            id: loadedId,
+          };
+          setProjectId(loadedId);
+          setProjectTitle(loadedData.title);
+          if (loadedData.synopsis !== undefined) setProjectSynopsis(loadedData.synopsis);
+          setActs(loadedData.acts);
+          setScenes(loadedData.scenes);
+          saveProjectToStorage(loadedData);
+          showNotification(`Proyecto "${loadedData.title}" cargado correctamente`);
         } else {
           alert('El archivo JSON no tiene la estructura de GuionStudio válida.');
         }
@@ -766,9 +898,11 @@ export function DashboardGuion() {
                   {/* Act Header */}
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
-                      <span className={`text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-lg border ${actBadgeStyle}`}>
-                        Acto {act.orden}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className={`text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-lg border ${actBadgeStyle}`}>
+                          Acto {act.orden}
+                        </span>
+                      </div>
                       <span className="text-xs text-slate-400 font-mono">
                         {actScenes.length} escena(s)
                       </span>
@@ -797,7 +931,7 @@ export function DashboardGuion() {
                     <div className="space-y-2.5 pt-1">
                       <div className="flex items-center justify-between">
                         <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                          Escenas ({actScenes.length}):
+                          Escenas:
                         </span>
                         <button
                           onClick={() => handleAddScene(act.id)}
@@ -1095,8 +1229,9 @@ export function EditorActo() {
   const { id, actoId } = useParams<{ id: string; actoId: string }>();
   const navigate = useNavigate();
 
-  const [projectId, setProjectId] = useState<string>(id || 'proj-1');
+  const [projectId, setProjectId] = useState<string | number>(id || 'proj-1');
   const [projectTitle, setProjectTitle] = useState<string>('CyberNights');
+  const [projectSynopsis, setProjectSynopsis] = useState<string>('Un thriller cyberpunk sobre conspiraciones corporativas.');
   const [acts, setActs] = useState<Act[]>(INITIAL_ACTS);
   const [scenes, setScenes] = useState<Scene[]>(INITIAL_SCENES);
 
@@ -1107,6 +1242,18 @@ export function EditorActo() {
 
   // Load project state from localStorage
   useEffect(() => {
+    if (id) {
+      const loaded = loadProjectFromStorage(id);
+      if (loaded) {
+        setProjectId(loaded.id);
+        setProjectTitle(loaded.title);
+        if (loaded.synopsis !== undefined) setProjectSynopsis(loaded.synopsis);
+        setActs(loaded.acts);
+        setScenes(loaded.scenes);
+        return;
+      }
+    }
+
     const saved = localStorage.getItem('guionstudio_active_project');
     if (saved) {
       try {
@@ -1114,6 +1261,7 @@ export function EditorActo() {
         if (data.title && Array.isArray(data.acts) && Array.isArray(data.scenes)) {
           setProjectId(data.id || `proj-${id || '1'}`);
           setProjectTitle(data.title);
+          if (data.synopsis !== undefined) setProjectSynopsis(data.synopsis);
           setActs(data.acts);
           setScenes(data.scenes);
         }
@@ -1150,11 +1298,12 @@ export function EditorActo() {
     const data: ProjectData = {
       id: projectId,
       title: projectTitle,
+      synopsis: projectSynopsis,
       acts: newActs,
       scenes: newScenes,
       updatedAt: new Date().toISOString(),
     };
-    localStorage.setItem('guionstudio_active_project', JSON.stringify(data));
+    saveProjectToStorage(data);
   };
 
   const updateCurrentAct = (fields: Partial<Act>) => {
@@ -1245,7 +1394,7 @@ export function EditorActo() {
 
           <div className="flex items-center gap-2">
             <span className="text-xs font-black uppercase bg-violet-950/70 text-violet-300 px-2.5 py-0.5 rounded-md border border-violet-800/60">
-              Acto {currentAct.orden}
+              Editor Dedicado: Acto {currentAct.orden}
             </span>
             <h1 className="text-base font-bold text-slate-100">{currentAct.nombre}</h1>
           </div>
