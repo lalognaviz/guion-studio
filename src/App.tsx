@@ -684,14 +684,6 @@ export function DashboardGuion() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5 text-sm">
               <div>
                 <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">
-                  Ruta de Archivo:
-                </span>
-                <p className="font-mono text-xs text-slate-300 bg-slate-950/60 p-3 rounded-xl border border-slate-800/80 truncate">
-                  {projectFileRoute || `/proyectos/${projectTitle.toLowerCase().replace(/\s+/g, '_')}.json`}
-                </p>
-              </div>
-              <div>
-                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">
                   Sinopsis Argumental del Proyecto:
                 </span>
                 <p className="text-xs text-slate-300 bg-slate-950/40 p-3 rounded-xl border border-slate-800/80 leading-relaxed italic">
@@ -700,18 +692,6 @@ export function DashboardGuion() {
               </div>
             </div>
           </div>
-
-          {/* 3 ACTS BOARD SECTION HEADER */}
-          <div className="flex items-center justify-between pt-2 border-b border-slate-800/80 pb-4">
-            <div>
-              <h3 className="text-2xl font-black text-slate-100 tracking-tight">Estructura del Guion por Actos</h3>
-              <p className="text-xs text-slate-400 mt-1">Crea, edita y gestiona escenas directamente o accede al editor dedicado por acto.</p>
-            </div>
-            <span className="bg-slate-900 text-indigo-300 text-xs px-3.5 py-1.5 rounded-full border border-slate-800 font-mono">
-              3 Actos Configurados
-            </span>
-          </div>
-
           {/* 3 SECTIONS FOR 3 ACTS */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch">
             {acts.map((act) => {
