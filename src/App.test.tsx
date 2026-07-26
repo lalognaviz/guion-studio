@@ -17,25 +17,32 @@ describe('GuionStudio App & Unified Script Dashboard', () => {
     expect(screen.getByText('Shadow Realm')).toBeInTheDocument();
   });
 
-  it('navigates to unified DashboardGuion when clicking "Abrir"', async () => {
+  it('allows creating a brand new project from Dashboard "+ Nuevo Guion" button', async () => {
     render(<App initialRoute="/" />);
-    await waitFor(() => {
-      expect(screen.getByText('CyberNights')).toBeInTheDocument();
-    });
-
-    const abrirBtns = screen.getAllByRole('button', { name: /^Abrir$/i });
-    fireEvent.click(abrirBtns[0]);
+    const newProjBtn = screen.getByRole('button', { name: /\+ Nuevo Guion/i });
+    fireEvent.click(newProjBtn);
 
     await waitFor(() => {
-      expect(screen.getByText('Proyecto Activo')).toBeInTheDocument();
-      expect(screen.getByText('Sinopsis Argumental del Proyecto:')).toBeInTheDocument();
+      expect(screen.getByDisplayValue('Nuevo Proyecto Guion')).toBeInTheDocument();
+      expect(screen.getByDisplayValue(/Escribe aquí la sinopsis argumental de tu nuevo proyecto/i)).toBeInTheDocument();
     });
   });
 
-  it('renders unified DashboardGuion at path "/tablero/1" with project details and 3 act sections', () => {
+  it('allows editing project title and project synopsis directly in DashboardGuion', async () => {
+    render(<App initialRoute="/tablero/1" />);
+    
+    const titleInput = screen.getByDisplayValue('CyberNights');
+    fireEvent.change(titleInput, { target: { value: 'CyberNights Remastered' } });
+    expect(screen.getByDisplayValue('CyberNights Remastered')).toBeInTheDocument();
+
+    const synopsisInput = screen.getByDisplayValue(/Un thriller cyberpunk sobre conspiraciones corporativas/i);
+    fireEvent.change(synopsisInput, { target: { value: 'Sinopsis actualizada para el thriller' } });
+    expect(screen.getByDisplayValue('Sinopsis actualizada para el thriller')).toBeInTheDocument();
+  });
+
+  it('renders unified DashboardGuion at path "/tablero/1" with 3 act sections', () => {
     render(<App initialRoute="/tablero/1" />);
     expect(screen.getByText('Proyecto Activo')).toBeInTheDocument();
-    expect(screen.getByText('Sinopsis Argumental del Proyecto:')).toBeInTheDocument();
 
     // 3 Act titles
     expect(screen.getByText('Planteamiento')).toBeInTheDocument();

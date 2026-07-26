@@ -50,6 +50,7 @@ export type Act = {
 export type ProjectData = {
   id: string;
   title: string;
+  synopsis?: string;
   acts: Act[];
   scenes: Scene[];
   updatedAt: string;
@@ -189,6 +190,20 @@ export function Dashboard() {
     };
   }, []);
 
+  const handleCreateNewProject = () => {
+    const newId = `proj-${Date.now()}`;
+    const newProject: ProjectData = {
+      id: newId,
+      title: 'Nuevo Proyecto Guion',
+      synopsis: 'Escribe aquí la sinopsis argumental de tu nuevo proyecto...',
+      acts: INITIAL_ACTS,
+      scenes: [],
+      updatedAt: new Date().toISOString(),
+    };
+    localStorage.setItem('guionstudio_active_project', JSON.stringify(newProject));
+    navigate(`/tablero/${newId}`);
+  };
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-violet-500/30 selection:text-violet-200">
       {/* Top Navbar */}
@@ -204,7 +219,7 @@ export function Dashboard() {
           </div>
         </div>
         <button
-          onClick={() => navigate('/tablero/1')}
+          onClick={handleCreateNewProject}
           className="bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-lg shadow-indigo-950/50 transition-all duration-200 flex items-center gap-2"
         >
           <span>+</span> Nuevo Guion
@@ -250,6 +265,9 @@ export function Dashboard() {
                     >
                       {p.titulo}
                     </h3>
+                    <span className="bg-slate-800/80 text-slate-400 text-[10px] px-2.5 py-1 rounded-md font-mono border border-slate-700/60">
+                      #{p.id}
+                    </span>
                   </div>
                   <p className="text-xs text-slate-400 mb-3 truncate flex items-center gap-1.5 font-mono">
                     <span className="text-indigo-400">📁</span> {p.ruta_archivo || 'Sin ruta definida'}
@@ -301,8 +319,27 @@ export function DashboardGuion() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  // Sync project details from IPC
+  // Load project from localStorage or IPC on mount
   useEffect(() => {
+    const saved = localStorage.getItem('guionstudio_active_project');
+    if (saved) {
+      try {
+        const data: ProjectData = JSON.parse(saved);
+        if (data.title && Array.isArray(data.acts) && Array.isArray(data.scenes)) {
+          if (!id || data.id === id || id.startsWith('proj-') || id.startsWith('new-')) {
+            setProjectId(data.id || `proj-${id || '1'}`);
+            setProjectTitle(data.title);
+            if (data.synopsis !== undefined) setProjectSynopsis(data.synopsis);
+            setActs(data.acts);
+            setScenes(data.scenes);
+            return;
+          }
+        }
+      } catch (e) {
+        console.error("Error al cargar proyecto guardado:", e);
+      }
+    }
+
     if (id) {
       const numericId = parseInt(id, 10);
       if (!isNaN(numericId)) {
@@ -313,24 +350,6 @@ export function DashboardGuion() {
             setProjectId(`proj-${det.id}`);
           }
         }).catch(() => {});
-      }
-    }
-  }, [id]);
-
-  // Load project from localStorage on mount
-  useEffect(() => {
-    const saved = localStorage.getItem('guionstudio_active_project');
-    if (saved) {
-      try {
-        const data: ProjectData = JSON.parse(saved);
-        if (data.title && Array.isArray(data.acts) && Array.isArray(data.scenes)) {
-          setProjectId(data.id || `proj-${id || '1'}`);
-          setProjectTitle(data.title);
-          setActs(data.acts);
-          setScenes(data.scenes);
-        }
-      } catch (e) {
-        console.error("Error al cargar proyecto guardado:", e);
       }
     }
   }, [id]);
@@ -360,10 +379,16 @@ export function DashboardGuion() {
     setTimeout(() => setNotification(null), 3000);
   };
 
-  const saveState = (newActs: Act[], newScenes: Scene[]) => {
+  const saveState = (
+    newTitle: string = projectTitle,
+    newSynopsis: string = projectSynopsis,
+    newActs: Act[] = acts,
+    newScenes: Scene[] = scenes
+  ) => {
     const data: ProjectData = {
       id: projectId,
-      title: projectTitle,
+      title: newTitle,
+      synopsis: newSynopsis,
       acts: newActs,
       scenes: newScenes,
       updatedAt: new Date().toISOString(),
@@ -386,20 +411,20 @@ export function DashboardGuion() {
     };
     const updatedScenes = [...scenes, newScene];
     setScenes(updatedScenes);
-    saveState(acts, updatedScenes);
+    saveState(projectTitle, projectSynopsis, acts, updatedScenes);
     showNotification(`Escena creada en Acto ${acts.find((a) => a.id === act_id)?.orden}`);
   };
 
   const handleUpdateScene = (updated: Scene) => {
     const updatedScenes = scenes.map((s) => (s.id === updated.id ? updated : s));
     setScenes(updatedScenes);
-    saveState(acts, updatedScenes);
+    saveState(projectTitle, projectSynopsis, acts, updatedScenes);
   };
 
   const handleDeleteScene = (sceneId: string) => {
     const updatedScenes = scenes.filter((s) => s.id !== sceneId);
     setScenes(updatedScenes);
-    saveState(acts, updatedScenes);
+    saveState(projectTitle, projectSynopsis, acts, updatedScenes);
     showNotification('Escena eliminada');
   };
 
@@ -420,7 +445,7 @@ export function DashboardGuion() {
         return s;
       });
       setScenes(updatedScenes);
-      saveState(acts, updatedScenes);
+      saveState(projectTitle, projectSynopsis, acts, updatedScenes);
     } else if (direction === 'down' && index < actScenes.length - 1) {
       const nextScene = actScenes[index + 1];
       const updatedScenes = scenes.map((s) => {
@@ -429,7 +454,7 @@ export function DashboardGuion() {
         return s;
       });
       setScenes(updatedScenes);
-      saveState(acts, updatedScenes);
+      saveState(projectTitle, projectSynopsis, acts, updatedScenes);
     }
   };
 
@@ -458,11 +483,26 @@ export function DashboardGuion() {
 
   const handleNewProject = () => {
     if (window.confirm('¿Deseas iniciar un nuevo proyecto? Los cambios no guardados se perderán.')) {
-      setProjectId(`proj-${Date.now()}`);
-      setProjectTitle('Nuevo Proyecto Guion');
+      const newId = `proj-${Date.now()}`;
+      const newTitle = 'Nuevo Proyecto Guion';
+      const newSynopsis = 'Escribe aquí la sinopsis argumental de tu nuevo proyecto...';
+      setProjectId(newId);
+      setProjectTitle(newTitle);
+      setProjectSynopsis(newSynopsis);
+      setActs(INITIAL_ACTS);
       setScenes([]);
+      const newProject: ProjectData = {
+        id: newId,
+        title: newTitle,
+        synopsis: newSynopsis,
+        acts: INITIAL_ACTS,
+        scenes: [],
+        updatedAt: new Date().toISOString(),
+      };
+      localStorage.setItem('guionstudio_active_project', JSON.stringify(newProject));
       showNotification('Nuevo proyecto creado');
       setIsFileMenuOpen(false);
+      navigate(`/tablero/${newId}`);
     }
   };
 
@@ -470,6 +510,7 @@ export function DashboardGuion() {
     const data: ProjectData = {
       id: projectId,
       title: projectTitle,
+      synopsis: projectSynopsis,
       acts,
       scenes,
       updatedAt: new Date().toISOString(),
@@ -492,6 +533,7 @@ export function DashboardGuion() {
     const data: ProjectData = {
       id: projectId,
       title: saveAsTitleInput.trim(),
+      synopsis: projectSynopsis,
       acts,
       scenes,
       updatedAt: new Date().toISOString(),
@@ -519,6 +561,7 @@ export function DashboardGuion() {
         if (data.title && Array.isArray(data.acts) && Array.isArray(data.scenes)) {
           setProjectId(data.id || `proj-${Date.now()}`);
           setProjectTitle(data.title);
+          if (data.synopsis !== undefined) setProjectSynopsis(data.synopsis);
           setActs(data.acts);
           setScenes(data.scenes);
           showNotification(`Proyecto "${data.title}" cargado correctamente`);
@@ -562,14 +605,6 @@ export function DashboardGuion() {
           <h1 className="text-lg font-black tracking-tight text-white flex items-center gap-1.5">
             Guion<span className="text-transparent bg-clip-text bg-gradient-to-r from-violet-400 to-indigo-400">Studio</span>
           </h1>
-
-          <input
-            type="text"
-            value={projectTitle}
-            onChange={(e) => setProjectTitle(e.target.value)}
-            className="bg-slate-800/90 text-slate-100 text-xs font-semibold px-3 py-1.5 rounded-lg border border-slate-700/80 focus:outline-none focus:border-violet-500 transition max-w-xs"
-            title="Título del proyecto"
-          />
 
           {/* Archivo Menu Dropdown */}
           <div className="relative" ref={menuRef}>
@@ -668,28 +703,47 @@ export function DashboardGuion() {
       <div className="flex-1 flex overflow-hidden">
         <main className="flex-1 p-6 overflow-y-auto max-w-7xl mx-auto w-full space-y-6">
           
-          {/* UNIFIED PROJECT DETAILS CARD */}
-          <div className="bg-slate-900/80 backdrop-blur-sm border border-slate-800/80 rounded-2xl p-6 shadow-2xl space-y-5">
+          {/* UNIFIED PROJECT DETAILS CARD (EDITABLE) */}
+          <div className="bg-slate-900/80 backdrop-blur-sm border border-slate-800/80 rounded-2xl p-6 shadow-2xl space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800 pb-4">
-              <div className="flex items-center gap-3">
-                <span className="text-[11px] font-black tracking-wider text-violet-300 bg-violet-950/60 border border-violet-800/60 px-3 py-1 rounded-lg uppercase">
+              <div className="flex items-center gap-3 flex-1 min-w-0">
+                <span className="text-[11px] font-black tracking-wider text-violet-300 bg-violet-950/60 border border-violet-800/60 px-3 py-1.5 rounded-lg uppercase shrink-0">
                   Proyecto Activo
                 </span>
-                <h2 className="text-3xl font-black text-slate-100 tracking-tight">{projectTitle}</h2>
+                <input
+                  type="text"
+                  value={projectTitle}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setProjectTitle(val);
+                    saveState(val, projectSynopsis, acts, scenes);
+                  }}
+                  className="text-2xl md:text-3xl font-black text-slate-100 bg-slate-950/80 border border-slate-800 focus:border-violet-500 rounded-xl px-3.5 py-1.5 w-full transition focus:outline-none tracking-tight"
+                  placeholder="Nombre del proyecto..."
+                  title="Haz clic para editar el nombre del proyecto"
+                />
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5 text-sm">
-              <div>
-                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">
-                  Sinopsis Argumental del Proyecto:
-                </span>
-                <p className="text-xs text-slate-300 bg-slate-950/40 p-3 rounded-xl border border-slate-800/80 leading-relaxed italic">
-                  {projectSynopsis || 'Sinopsis general del proyecto narrativo.'}
-                </p>
-              </div>
+            <div>
+              <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                Sinopsis Argumental del Proyecto:
+              </label>
+              <textarea
+                value={projectSynopsis}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setProjectSynopsis(val);
+                  saveState(projectTitle, val, acts, scenes);
+                }}
+                rows={2}
+                className="w-full bg-slate-950/80 border border-slate-800/80 rounded-xl p-3 text-xs text-slate-200 focus:outline-none focus:border-violet-500 leading-relaxed transition font-sans"
+                placeholder="Escribe la sinopsis argumental del proyecto..."
+                title="Haz clic para editar la sinopsis del proyecto"
+              />
             </div>
           </div>
+
           {/* 3 SECTIONS FOR 3 ACTS */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch">
             {acts.map((act) => {
@@ -743,7 +797,7 @@ export function DashboardGuion() {
                     <div className="space-y-2.5 pt-1">
                       <div className="flex items-center justify-between">
                         <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                          Escenas:
+                          Escenas ({actScenes.length}):
                         </span>
                         <button
                           onClick={() => handleAddScene(act.id)}
@@ -1235,15 +1289,6 @@ export function EditorActo() {
       <main className="flex-1 max-w-5xl w-full mx-auto p-8 space-y-6">
         {/* Act Header & Meta Edit Card */}
         <div className="bg-slate-900/80 backdrop-blur-sm border border-slate-800/80 rounded-2xl p-6 shadow-2xl space-y-5">
-          <div className="flex items-center justify-between">
-            <h2 className="text-2xl font-black text-violet-300 flex items-center gap-2 tracking-tight">
-              <span>🎭</span> Editor Dedicado: Acto {currentAct.orden}
-            </h2>
-            <span className="text-xs font-mono text-slate-400">
-              {actScenes.length} escena(s) registradas
-            </span>
-          </div>
-
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             <div>
               <label className="block text-xs font-bold uppercase text-slate-400 mb-1.5">
