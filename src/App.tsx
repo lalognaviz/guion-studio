@@ -774,7 +774,7 @@ export function DashboardGuion() {
                   onClick={handleSaveJson}
                   className="w-full text-left px-4 py-2 text-xs text-slate-200 hover:bg-slate-800 hover:text-violet-300 flex items-center gap-2"
                 >
-                  💾 Guardar (.json)
+                  💾 Guardar
                 </button>
                 <button
                   onClick={() => {
@@ -800,7 +800,7 @@ export function DashboardGuion() {
                   }}
                   className="w-full text-left px-4 py-2 text-xs text-violet-400 hover:bg-slate-800 font-medium flex items-center gap-2"
                 >
-                  📖 Lector Markdown (.md)
+                  vista previa
                 </button>
               </div>
             )}
@@ -1149,7 +1149,7 @@ export function DashboardGuion() {
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 max-w-md w-full shadow-2xl">
             <h3 className="text-lg font-bold text-slate-100 mb-2">Guardar Proyecto Como...</h3>
             <p className="text-xs text-slate-400 mb-4">
-              Ingresa un nuevo nombre para el archivo de proyecto (.json).
+              Ingresa un nuevo nombre para el archivo de proyecto.
             </p>
             <input
               type="text"
@@ -1168,7 +1168,7 @@ export function DashboardGuion() {
                 onClick={handleSaveAsSubmit}
                 className="px-4 py-2 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white text-xs font-bold rounded-xl shadow-lg"
               >
-                Descarga Directa (.json)
+                Descarga Directa
               </button>
             </div>
           </div>
@@ -1393,7 +1393,7 @@ export function EditorActo() {
           <span className="text-slate-700">|</span>
 
           <div className="flex items-center gap-2">
-            <h1 className="text-base font-bold text-slate-100">{currentAct.nombre}</h1>
+            <h1 className="text-base font-bold text-slate-100">Editor Dedicado: Acto {currentAct.orden} - {currentAct.nombre}</h1>
           </div>
         </div>
 
