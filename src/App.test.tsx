@@ -17,32 +17,30 @@ describe('GuionStudio App & Unified Script Dashboard', () => {
     expect(screen.getByText('Shadow Realm')).toBeInTheDocument();
   });
 
-  it('navigates to unified DashboardGuion when clicking "Abrir Guion & Detalles"', async () => {
+  it('navigates to unified DashboardGuion when clicking "Abrir"', async () => {
     render(<App initialRoute="/" />);
     await waitFor(() => {
       expect(screen.getByText('CyberNights')).toBeInTheDocument();
     });
 
-    const abrirBtns = screen.getAllByRole('button', { name: /Abrir Guion & Detalles/i });
+    const abrirBtns = screen.getAllByRole('button', { name: /^Abrir$/i });
     fireEvent.click(abrirBtns[0]);
 
     await waitFor(() => {
       expect(screen.getByText('Proyecto Activo')).toBeInTheDocument();
       expect(screen.getByText('Sinopsis Argumental del Proyecto:')).toBeInTheDocument();
-      expect(screen.getByText(/Estructura del Guion por Actos/i)).toBeInTheDocument();
     });
   });
 
   it('renders unified DashboardGuion at path "/tablero/1" with project details and 3 act sections', () => {
     render(<App initialRoute="/tablero/1" />);
     expect(screen.getByText('Proyecto Activo')).toBeInTheDocument();
-    expect(screen.getByText('Ruta de Archivo:')).toBeInTheDocument();
     expect(screen.getByText('Sinopsis Argumental del Proyecto:')).toBeInTheDocument();
 
     // 3 Act titles
-    expect(screen.getByText('Acto 1: Planteamiento')).toBeInTheDocument();
-    expect(screen.getByText('Acto 2: Confrontación')).toBeInTheDocument();
-    expect(screen.getByText('Acto 3: Resolución')).toBeInTheDocument();
+    expect(screen.getByText('Planteamiento')).toBeInTheDocument();
+    expect(screen.getByText('Confrontación')).toBeInTheDocument();
+    expect(screen.getByText('Resolución')).toBeInTheDocument();
 
     // Plot Points and Sinopsis
     expect(screen.getByText(/La guardia ataca el mercado; el jugador huye a las alcantarillas\./i)).toBeInTheDocument();
@@ -52,8 +50,8 @@ describe('GuionStudio App & Unified Script Dashboard', () => {
     expect(screen.getByDisplayValue('Encuentro con el Mercader')).toBeInTheDocument();
     expect(screen.getByDisplayValue('Las Alcantarillas')).toBeInTheDocument();
 
-    // Dedicated Editor buttons for each section
-    const dedicatedBtns = screen.getAllByRole('button', { name: /Editor Dedicado/i });
+    // Dedicated Editor buttons for each section ("Editar")
+    const dedicatedBtns = screen.getAllByRole('button', { name: /^Editar$/i });
     expect(dedicatedBtns.length).toBe(3);
   });
 
@@ -74,9 +72,9 @@ describe('GuionStudio App & Unified Script Dashboard', () => {
     expect(screen.getByDisplayValue('Escena de Prueba Directa')).toBeInTheDocument();
   });
 
-  it('navigates from DashboardGuion to EditorActo when clicking "Editor Dedicado de Acto 1"', () => {
+  it('navigates from DashboardGuion to EditorActo when clicking "Editar"', () => {
     render(<App initialRoute="/tablero/1" />);
-    const dedicatedBtns = screen.getAllByRole('button', { name: /Editor Dedicado/i });
+    const dedicatedBtns = screen.getAllByRole('button', { name: /^Editar$/i });
     fireEvent.click(dedicatedBtns[0]);
 
     expect(screen.getByText(/Editor Dedicado: Acto 1/i)).toBeInTheDocument();

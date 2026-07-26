@@ -285,7 +285,6 @@ export function DashboardGuion() {
   const [projectId, setProjectId] = useState<string>(id || 'proj-1');
   const [projectTitle, setProjectTitle] = useState<string>('CyberNights');
   const [projectSynopsis, setProjectSynopsis] = useState<string>('Un thriller cyberpunk sobre conspiraciones corporativas y redes de clonación subterráneas.');
-  const [projectFileRoute, setProjectFileRoute] = useState<string>('/proyectos/cybernights.json');
   const [acts, setActs] = useState<Act[]>(INITIAL_ACTS);
   const [scenes, setScenes] = useState<Scene[]>(INITIAL_SCENES);
 
@@ -311,7 +310,6 @@ export function DashboardGuion() {
           if (det) {
             if (det.titulo) setProjectTitle(det.titulo);
             if (det.sinopsis) setProjectSynopsis(det.sinopsis);
-            if (det.ruta_archivo) setProjectFileRoute(det.ruta_archivo);
             setProjectId(`proj-${det.id}`);
           }
         }).catch(() => {});
@@ -721,9 +719,6 @@ export function DashboardGuion() {
                         {actScenes.length} escena(s)
                       </span>
                     </div>
-
-                    <h4 className="text-xl font-extrabold text-slate-100">{`${act.nombre}`}</h4>
-
                     {/* Sinopsis del Acto */}
                     <div>
                       <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
@@ -824,13 +819,17 @@ export function DashboardGuion() {
                                       ▼
                                     </button>
 
-                                    {/* Toggle Inline */}
+                                    {/* Toggle Inline Desplegable */}
                                     <button
                                       onClick={() => setExpandedSceneId(isExpanded ? null : scene.id)}
-                                      className="text-slate-400 hover:text-violet-400 text-xs px-1"
-                                      title={isExpanded ? 'Contraer' : 'Editar inline'}
+                                      className={`px-2 py-0.5 rounded-lg text-[10px] font-bold transition flex items-center gap-1 border ${
+                                        isExpanded
+                                          ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white border-transparent shadow-md'
+                                          : 'bg-slate-800/90 text-slate-300 hover:text-white hover:bg-slate-700/80 border-slate-700/80'
+                                      }`}
+                                      title={isExpanded ? 'Contraer escena' : 'Desplegar detalles de escena'}
                                     >
-                                      {isExpanded ? '▼' : '►'}
+                                      <span>{isExpanded ? '➖' : '➕'}</span>
                                     </button>
 
                                     {/* Maximize */}
@@ -1369,9 +1368,14 @@ export function EditorActo() {
                         {/* Toggle Inline Details */}
                         <button
                           onClick={() => setExpandedSceneId(isExpanded ? null : scene.id)}
-                          className="text-slate-300 hover:text-violet-400 text-xs px-3 py-1.5 bg-slate-900 rounded-lg border border-slate-800 font-semibold"
+                          className={`text-xs px-3 py-1.5 rounded-xl border font-bold transition flex items-center gap-1.5 ${
+                            isExpanded
+                              ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white border-transparent shadow-md'
+                              : 'bg-slate-900 text-slate-300 hover:text-white border-slate-800'
+                          }`}
                         >
-                          {isExpanded ? 'Contraer ▲' : 'Desplegar Inline ▼'}
+                          <span>{isExpanded ? '➖' : '➕'}</span>
+                          <span>{isExpanded ? 'Contraer' : 'Desplegar'}</span>
                         </button>
 
                         {/* Maximize Button */}
