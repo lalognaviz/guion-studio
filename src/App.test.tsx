@@ -1,10 +1,11 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import App from './App';
+import App, { seedDemoProjects } from './App';
 
 describe('GuionStudio App & Unified Script Dashboard', () => {
   beforeEach(() => {
     localStorage.clear();
+    seedDemoProjects();
   });
 
   it('renders the Dashboard of Projects by default at root path "/"', async () => {
@@ -147,7 +148,7 @@ describe('GuionStudio App & Unified Script Dashboard', () => {
 
   it('persists newly created projects so they appear in the Dashboard list', async () => {
     render(<App initialRoute="/" />);
-    const newProjBtn = screen.getByRole('button', { name: /\+ Nuevo Guion/i });
+    const newProjBtn = screen.getAllByRole('button', { name: /\+ Nuevo Guion/i })[0];
     fireEvent.click(newProjBtn);
 
     // Edit title of newly created project
@@ -183,44 +184,63 @@ describe('GuionStudio App & Unified Script Dashboard', () => {
     });
   });
 
-  it('allows hiding a project from home Dashboard with "Quitar" button', async () => {
+  it('allows hiding a project from Dashboard via ✕ button and modal', async () => {
     render(<App initialRoute="/" />);
     await waitFor(() => {
       expect(screen.getByText('CyberNights')).toBeInTheDocument();
     });
 
-    const hideBtns = screen.getAllByRole('button', { name: /Quitar/i });
-    expect(hideBtns.length).toBeGreaterThan(0);
-    fireEvent.click(hideBtns[0]);
+    // Click ✕ on first card
+    const dismissBtns = screen.getAllByRole('button', { name: '✕' });
+    expect(dismissBtns.length).toBeGreaterThan(0);
+    fireEvent.click(dismissBtns[0]);
+
+    // Options modal opens
+    expect(screen.getByText(/¿Qué deseas hacer con este proyecto\?/i)).toBeInTheDocument();
+
+    // Click "Quitar de la vista"
+    fireEvent.click(screen.getByText(/Quitar de la vista/i));
 
     await waitFor(() => {
       expect(screen.queryByText('CyberNights')).not.toBeInTheDocument();
     });
-    expect(screen.getByText(/Proyectos quitados del inicio/i)).toBeInTheDocument();
   });
 
-  it('allows deleting a project permanently with modal confirmation', async () => {
+  it('allows deleting a project permanently via ✕ button and modal', async () => {
     render(<App initialRoute="/" />);
     await waitFor(() => {
       expect(screen.getByText('Shadow Realm')).toBeInTheDocument();
     });
 
-    const deleteBtns = screen.getAllByRole('button', { name: '🗑️' });
-    expect(deleteBtns.length).toBeGreaterThan(0);
-    
-    // Click 🗑️ on second card (Shadow Realm)
-    fireEvent.click(deleteBtns[1]);
+    // Click ✕ on second card
+    const dismissBtns = screen.getAllByRole('button', { name: '✕' });
+    expect(dismissBtns.length).toBeGreaterThan(0);
+    fireEvent.click(dismissBtns[1]);
 
-    // Modal confirmation opens
-    expect(screen.getByText(/Confirmar Borrado Definitivo/i)).toBeInTheDocument();
-    expect(screen.getAllByText(/Shadow Realm/i).length).toBeGreaterThan(0);
+    // Options modal opens
+    expect(screen.getByText(/¿Qué deseas hacer con este proyecto\?/i)).toBeInTheDocument();
 
-    // Click confirm delete button inside modal
-    const confirmDeleteBtn = screen.getByRole('button', { name: /Eliminar Definitivamente/i });
-    fireEvent.click(confirmDeleteBtn);
+    // Click "Eliminar definitivamente"
+    fireEvent.click(screen.getByText(/Eliminar definitivamente/i));
 
     await waitFor(() => {
       expect(screen.queryByText('Shadow Realm')).not.toBeInTheDocument();
+    });
+  });
+
+  it('shows welcome empty state and allows creating an example project', async () => {
+    localStorage.clear(); // Clear demo projects for this test
+    render(<App initialRoute="/" />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/¡Bienvenido a GuionStudio!/i)).toBeInTheDocument();
+    });
+
+    const exampleBtn = screen.getByRole('button', { name: /Crear Proyecto de Ejemplo/i });
+    fireEvent.click(exampleBtn);
+
+    await waitFor(() => {
+      expect(screen.getByDisplayValue('CyberNights')).toBeInTheDocument();
     });
   });
 });
