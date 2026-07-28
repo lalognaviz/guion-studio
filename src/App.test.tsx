@@ -243,4 +243,66 @@ describe('GuionStudio App & Unified Script Dashboard', () => {
       expect(screen.getByDisplayValue('CyberNights')).toBeInTheDocument();
     });
   });
+
+  it('allows adding and removing scene connections in MaximizedSceneModal', () => {
+    render(<App initialRoute="/tablero/1/acto/act-1" />);
+    
+    // Open maximize modal for first scene
+    const maximizeBtns = screen.getAllByRole('button', { name: /Maximizar/i });
+    fireEvent.click(maximizeBtns[0]);
+    
+    // Verify connections section exists
+    expect(screen.getByText(/Escenas Siguientes \(Conexiones\)/i)).toBeInTheDocument();
+    expect(screen.getByText(/Sin conexiones/i)).toBeInTheDocument();
+    
+    // Select target scene (Encuentro con el Mercader)
+    const targetSelect = screen.getByDisplayValue('— Seleccionar escena —');
+    const options = screen.getAllByRole('option');
+    const mercaderOption = options.find((opt) => opt.textContent?.includes('Encuentro con el Mercader'));
+    expect(mercaderOption).toBeDefined();
+    
+    fireEvent.change(targetSelect, { target: { value: mercaderOption?.getAttribute('value') } });
+    
+    // Enter choice label
+    const labelInput = screen.getByPlaceholderText(/Abrir la puerta/i);
+    fireEvent.change(labelInput, { target: { value: 'Ir a comprar equipamiento' } });
+    
+    // Click Conectar button
+    const connectBtn = screen.getByRole('button', { name: /Conectar/i });
+    fireEvent.click(connectBtn);
+    
+    // Connection appears in list
+    expect(screen.getByText(/Ir a comprar equipamiento/i)).toBeInTheDocument();
+    expect(screen.getByText(/Encuentro con el Mercader/i)).toBeInTheDocument();
+    
+    // Accept modal changes
+    const acceptBtn = screen.getByRole('button', { name: /✓ Aceptar/i });
+    fireEvent.click(acceptBtn);
+    
+    // Check indicator appears on card
+    expect(screen.getByText(/1 conexión/i)).toBeInTheDocument();
+  });
+
+  it('opens Archivo menu and exports Twine file (.twee) in Harlowe or SugarCube format', () => {
+    render(<App initialRoute="/tablero/1" />);
+    const archivoBtn = screen.getByRole('button', { name: /📂 Archivo/i });
+    fireEvent.click(archivoBtn);
+
+    globalThis.URL.createObjectURL = vi.fn(() => 'blob:twee-test');
+    globalThis.URL.revokeObjectURL = vi.fn();
+
+    const tweeOption = screen.getByText(/Exportar a Twine \(\.twee\)/i);
+    fireEvent.click(tweeOption);
+
+    // Modal opens showing format options
+    expect(screen.getByText(/Selecciona el formato de historia/i)).toBeInTheDocument();
+    expect(screen.getByText(/Harlowe 3\.x/i)).toBeInTheDocument();
+    expect(screen.getByText(/SugarCube 2\.x/i)).toBeInTheDocument();
+
+    // Confirm export with Harlowe default
+    const exportBtn = screen.getByRole('button', { name: /^Exportar \.twee$/i });
+    fireEvent.click(exportBtn);
+
+    expect(screen.getByText(/Guion exportado como "CyberNights\.twee" \(Harlowe\)/i)).toBeInTheDocument();
+  });
 });

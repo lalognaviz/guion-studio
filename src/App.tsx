@@ -26,6 +26,12 @@ export type ProyectoDetalle = {
 };
 
 // Types for Narrative Board
+export type SceneConnection = {
+  id: string;
+  target_scene_id: string;
+  label?: string;
+};
+
 export type Scene = {  
   id: string;  
   act_id: string;  
@@ -38,6 +44,7 @@ export type Scene = {
   sonido?: string;  
   texto_juego?: string;  
   dialogos?: string;  
+  conexiones?: SceneConnection[];
 };
 
 export type Act = {  
@@ -712,6 +719,8 @@ export function DashboardGuion() {
   const [theme, setTheme] = useState<'light' | 'dark'>('dark');
   const [isAiOpen, setIsAiOpen] = useState(false);
   const [notification, setNotification] = useState<string | null>(null);
+  const [isTweeExportOpen, setIsTweeExportOpen] = useState(false);
+  const [tweeFormat, setTweeFormat] = useState<'Harlowe' | 'SugarCube'>('Harlowe');
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -763,16 +772,6 @@ export function DashboardGuion() {
     }
   }, [id]);
 
-  // Sync theme
-  useEffect(() => {  
-    if (theme === 'dark') {  
-      document.documentElement.classList.add('dark');  
-    } else {  
-      document.documentElement.classList.remove('dark');  
-    }  
-  }, [theme]);
-
-  // Close dropdown menu when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
@@ -805,7 +804,6 @@ export function DashboardGuion() {
     saveProjectToStorage(data);
   };
 
-  // Scene Operations inside Dashboard
   const handleAddScene = (act_id: string) => {
     const actScenes = scenes.filter((s) => s.act_id === act_id);
     const newScene: Scene = {
@@ -817,6 +815,7 @@ export function DashboardGuion() {
       descripcion: '',
       escaleta: '',
       dialogos: '',
+      conexiones: [],
     };
     const updatedScenes = [...scenes, newScene];
     setScenes(updatedScenes);
@@ -831,7 +830,14 @@ export function DashboardGuion() {
   };
 
   const handleDeleteScene = (sceneId: string) => {
-    const updatedScenes = scenes.filter((s) => s.id !== sceneId);
+    const updatedScenes = scenes
+      .filter((s) => s.id !== sceneId)
+      .map((s) => ({
+        ...s,
+        conexiones: (s.conexiones || []).filter(
+          (c) => c.target_scene_id !== sceneId
+        ),
+      }));
     setScenes(updatedScenes);
     saveState(projectTitle, projectSynopsis, acts, updatedScenes);
     showNotification('Escena eliminada');
@@ -883,6 +889,20 @@ export function DashboardGuion() {
           if (s.descripcion) md += `**Descripción:** ${s.descripcion}\n\n`;
           if (s.escaleta) md += `**Escaleta:**\n${s.escaleta}\n\n`;
           if (s.dialogos) md += `**Diálogos:**\n\`\`\`text\n${s.dialogos}\n\`\`\`\n\n`;
+          const sceneConns = s.conexiones || [];
+          if (sceneConns.length > 0) {
+            md += `**Conexiones:**\n`;
+            sceneConns.forEach((conn) => {
+              const target = scenes.find((sc) => sc.id === conn.target_scene_id);
+              const targetName = target?.titulo || '⚠️ Escena desconocida';
+              if (conn.label) {
+                md += `- [${conn.label}] ➔ *${targetName}*\n`;
+              } else {
+                md += `- ➔ *${targetName}*\n`;
+              }
+            });
+            md += `\n`;
+          }
           md += `---\n\n`;
         });
       }
@@ -1077,6 +1097,103 @@ export function DashboardGuion() {
     setIsFileMenuOpen(false);
   };
 
+  const generateTweeText = (format: 'Harlowe' | 'SugarCube') => {
+    const ifid = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+      const r = (Math.random() * 16) | 0;
+      const v = c === 'x' ? r : (r & 0x3) | 0x8;
+      return v.toString(16);
+    }).toUpperCase();
+
+    let twee = '';
+    twee += `:: StoryTitle\n${projectTitle}\n\n`;
+
+    const sortedActs = [...acts].sort((a, b) => a.orden - b.orden);
+    const firstAct = sortedActs[0];
+    const firstScene = firstAct
+      ? scenes.filter((s) => s.act_id === firstAct.id).sort((a, b) => a.orden - b.orden)[0]
+      : null;
+
+    const passageNameMap = new Map<string, string>();
+    const titleCounts = new Map<string, number>();
+    for (const scene of scenes) {
+      titleCounts.set(scene.titulo, (titleCounts.get(scene.titulo) || 0) + 1);
+    }
+    for (const scene of scenes) {
+      if ((titleCounts.get(scene.titulo) || 0) > 1) {
+        const act = acts.find((a) => a.id === scene.act_id);
+        passageNameMap.set(scene.id, `${scene.titulo} (${act?.nombre || 'Sin acto'})`);
+      } else {
+        passageNameMap.set(scene.id, scene.titulo);
+      }
+    }
+    const getPassageName = (sceneId: string): string =>
+      passageNameMap.get(sceneId) || 'Pasaje desconocido';
+
+    const startPassageName = firstScene ? getPassageName(firstScene.id) : 'Start';
+    const formatVersion = format === 'Harlowe' ? '3.3.9' : '2.36.1';
+
+    twee += `:: StoryData\n`;
+    twee += JSON.stringify({ ifid, format, 'format-version': formatVersion, start: startPassageName }, null, 2);
+    twee += '\n\n';
+
+    const PASSAGE_WIDTH = 100;
+    const PASSAGE_HEIGHT = 100;
+    const COL_GAP = 220;
+    const ROW_GAP = 160;
+    const START_X = 100;
+    const START_Y = 100;
+
+    for (let actIdx = 0; actIdx < sortedActs.length; actIdx++) {
+      const act = sortedActs[actIdx];
+      const actScenes = scenes
+        .filter((s) => s.act_id === act.id)
+        .sort((a, b) => a.orden - b.orden);
+
+      for (let sceneIdx = 0; sceneIdx < actScenes.length; sceneIdx++) {
+        const scene = actScenes[sceneIdx];
+        const passageName = getPassageName(scene.id);
+        const posX = START_X + actIdx * COL_GAP;
+        const posY = START_Y + sceneIdx * ROW_GAP;
+        const metadata = JSON.stringify({
+          position: `${posX},${posY}`,
+          size: `${PASSAGE_WIDTH},${PASSAGE_HEIGHT}`,
+        });
+
+        twee += `:: ${passageName} ${metadata}\n`;
+        if (scene.descripcion) twee += `${scene.descripcion}\n\n`;
+        if (scene.escaleta) twee += `${scene.escaleta}\n\n`;
+        if (scene.dialogos) twee += `${scene.dialogos}\n\n`;
+        const connections = scene.conexiones || [];
+        if (connections.length > 0) {
+          for (const conn of connections) {
+            const targetName = getPassageName(conn.target_scene_id);
+            if (conn.label) {
+              twee += `[[${conn.label}|${targetName}]]\n`;
+            } else {
+              twee += `[[${targetName}]]\n`;
+            }
+          }
+        }
+        twee += '\n';
+      }
+    }
+    return twee;
+  };
+
+  const handleSaveTwee = (format: 'Harlowe' | 'SugarCube') => {
+    const tweeContent = generateTweeText(format);
+    const blob = new Blob([tweeContent], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${projectTitle}.twee`;
+    a.click();
+    URL.revokeObjectURL(url);
+    showNotification(`Guion exportado como "${projectTitle}.twee" (${format})`);
+    setIsTweeExportOpen(false);
+    setIsFileMenuOpen(false);
+  };
+
   return (
     <div className={`min-h-screen ${theme === 'dark' ? 'bg-slate-950 text-slate-100' : 'bg-slate-100 text-slate-800'} flex flex-col font-sans transition-colors duration-200 selection:bg-violet-500/30 selection:text-violet-200`}>
       {/* Top Bar Header */}
@@ -1147,6 +1264,15 @@ export function DashboardGuion() {
                   className="w-full text-left px-4 py-2 text-xs text-slate-200 hover:bg-slate-800 hover:text-violet-300 flex items-center gap-2"
                 >
                   📝 Guardar en .md
+                </button>
+                <button
+                  onClick={() => {
+                    setIsTweeExportOpen(true);
+                    setIsFileMenuOpen(false);
+                  }}
+                  className="w-full text-left px-4 py-2 text-xs text-slate-200 hover:bg-slate-800 hover:text-violet-300 flex items-center gap-2"
+                >
+                  🎮 Exportar a Twine (.twee)
                 </button>
                 <hr className="border-slate-800 my-1" />
                 <button
@@ -1427,6 +1553,12 @@ export function DashboardGuion() {
                                     </div>
                                   </div>
                                 )}
+                                {(scene.conexiones || []).length > 0 && (
+                                  <div className="flex items-center gap-1 text-[9px] text-violet-400 font-semibold bg-violet-950/40 border border-violet-800/40 px-2 py-0.5 rounded-md w-fit mt-1">
+                                    <span>🔗</span>
+                                    <span>{(scene.conexiones || []).length} conexión{(scene.conexiones || []).length > 1 ? 'es' : ''}</span>
+                                  </div>
+                                )}
                               </div>
                             );
                           })
@@ -1491,6 +1623,8 @@ export function DashboardGuion() {
       {maximizedScene && (
         <MaximizedSceneModal
           scene={maximizedScene}
+          allScenes={scenes}
+          allActs={acts}
           onClose={() => setMaximizedScene(null)}
           onSave={(updated) => {
             handleUpdateScene(updated);
@@ -1498,6 +1632,74 @@ export function DashboardGuion() {
             showNotification('Cambios guardados en la escena');
           }}
         />
+      )}
+
+      {/* Twee Export Format Modal */}
+      {isTweeExportOpen && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 w-full max-w-sm shadow-2xl">
+            <h3 className="text-sm font-bold text-slate-100 mb-4 flex items-center gap-2">
+              <span>🎮</span> Exportar a Twine (.twee)
+            </h3>
+            <div className="mb-5">
+              <label className="block text-xs font-bold uppercase text-slate-400 mb-2">
+                Selecciona el formato de historia:
+              </label>
+              <div className="space-y-2.5">
+                <label className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition ${
+                  tweeFormat === 'Harlowe'
+                    ? 'bg-violet-950/40 border-violet-500/60 text-violet-200'
+                    : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:border-slate-700'
+                }`}>
+                  <input
+                    type="radio"
+                    name="twee-format"
+                    value="Harlowe"
+                    checked={tweeFormat === 'Harlowe'}
+                    onChange={() => setTweeFormat('Harlowe')}
+                    className="mt-0.5 accent-violet-500"
+                  />
+                  <div>
+                    <span className="text-xs font-bold block text-slate-100">Harlowe 3.x (Recomendado)</span>
+                    <p className="text-[10px] text-slate-400 mt-0.5 leading-relaxed">Formato estándar de Twine para narrativa interactiva y ficción. Fácil de usar y predeterminado.</p>
+                  </div>
+                </label>
+                <label className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition ${
+                  tweeFormat === 'SugarCube'
+                    ? 'bg-violet-950/40 border-violet-500/60 text-violet-200'
+                    : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:border-slate-700'
+                }`}>
+                  <input
+                    type="radio"
+                    name="twee-format"
+                    value="SugarCube"
+                    checked={tweeFormat === 'SugarCube'}
+                    onChange={() => setTweeFormat('SugarCube')}
+                    className="mt-0.5 accent-violet-500"
+                  />
+                  <div>
+                    <span className="text-xs font-bold block text-slate-100">SugarCube 2.x</span>
+                    <p className="text-[10px] text-slate-400 mt-0.5 leading-relaxed">Formato avanzado con integración de JavaScript, inventarios y estado de juego completo.</p>
+                  </div>
+                </label>
+              </div>
+            </div>
+            <div className="flex items-center justify-end gap-3">
+              <button
+                onClick={() => setIsTweeExportOpen(false)}
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-xl border border-slate-700 transition"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={() => handleSaveTwee(tweeFormat)}
+                className="px-5 py-2.5 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white text-xs font-bold rounded-xl shadow-lg transition"
+              >
+                Exportar .twee
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Save As Modal */}
@@ -1741,7 +1943,14 @@ export function EditorActo() {
   };
 
   const handleDeleteScene = (sceneId: string) => {
-    const updatedScenes = scenes.filter((s) => s.id !== sceneId);
+    const updatedScenes = scenes
+      .filter((s) => s.id !== sceneId)
+      .map((s) => ({
+        ...s,
+        conexiones: (s.conexiones || []).filter(
+          (c) => c.target_scene_id !== sceneId
+        ),
+      }));
     setScenes(updatedScenes);
     saveState(acts, updatedScenes);
     showNotification('Escena eliminada');
@@ -2036,6 +2245,12 @@ export function EditorActo() {
                         </div>
                       </div>
                     )}
+                    {(scene.conexiones || []).length > 0 && (
+                      <div className="flex items-center gap-1 text-[10px] text-violet-400 font-semibold bg-violet-950/40 border border-violet-800/40 px-2.5 py-1 rounded-lg w-fit mt-2">
+                        <span>🔗</span>
+                        <span>{(scene.conexiones || []).length} conexión{(scene.conexiones || []).length > 1 ? 'es' : ''}</span>
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -2048,6 +2263,8 @@ export function EditorActo() {
       {maximizedScene && (
         <MaximizedSceneModal
           scene={maximizedScene}
+          allScenes={scenes}
+          allActs={acts}
           onClose={() => setMaximizedScene(null)}
           onSave={(updated) => {
             handleUpdateScene(updated);
@@ -2065,14 +2282,46 @@ export function EditorActo() {
 // -------------------------------------------------------------
 function MaximizedSceneModal({
   scene,
+  allScenes,
+  allActs,
   onClose,
   onSave,
 }: {
   scene: Scene;
+  allScenes: Scene[];
+  allActs: Act[];
   onClose: () => void;
   onSave: (updated: Scene) => void;
 }) {
   const [draft, setDraft] = useState<Scene>({ ...scene });
+  const [newConnTarget, setNewConnTarget] = useState<string>('');
+  const [newConnLabel, setNewConnLabel] = useState<string>('');
+
+  const handleAddConnection = () => {
+    if (!newConnTarget) return;
+    const newConn: SceneConnection = {
+      id: `conn-${Date.now()}`,
+      target_scene_id: newConnTarget,
+      label: newConnLabel.trim() || undefined,
+    };
+    setDraft({
+      ...draft,
+      conexiones: [...(draft.conexiones || []), newConn],
+    });
+    setNewConnTarget('');
+    setNewConnLabel('');
+  };
+
+  const handleRemoveConnection = (connId: string) => {
+    setDraft({
+      ...draft,
+      conexiones: (draft.conexiones || []).filter((c) => c.id !== connId),
+    });
+  };
+
+  const availableTargets = allScenes
+    .filter((s) => s.id !== draft.id)
+    .filter((s) => !(draft.conexiones || []).some((c) => c.target_scene_id === s.id));
 
   return (
     <div className="fixed inset-0 bg-black/85 backdrop-blur-md flex items-center justify-center p-6 z-50">
@@ -2097,70 +2346,166 @@ function MaximizedSceneModal({
         </div>
 
         {/* Body */}
-        <div className="flex-1 p-6 overflow-y-auto grid grid-cols-1 md:grid-cols-2 gap-6 bg-slate-950/60">
-          <div className="space-y-4">
-            <div>
-              <label className="block text-xs font-bold uppercase text-slate-400 mb-1.5">
-                Descripción / Sinopsis:
-              </label>
-              <textarea
-                value={draft.descripcion}
-                onChange={(e) => setDraft({ ...draft, descripcion: e.target.value })}
-                rows={3}
-                className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-sm text-slate-100 focus:outline-none focus:border-violet-500"
-              />
+        <div className="flex-1 p-6 overflow-y-auto space-y-6 bg-slate-950/60">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold uppercase text-slate-400 mb-1.5">
+                  Descripción / Sinopsis:
+                </label>
+                <textarea
+                  value={draft.descripcion}
+                  onChange={(e) => setDraft({ ...draft, descripcion: e.target.value })}
+                  rows={3}
+                  className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-sm text-slate-100 focus:outline-none focus:border-violet-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase text-slate-400 mb-1.5">
+                  Escaleta Paso a Paso (Beat Sheet):
+                </label>
+                <textarea
+                  value={draft.escaleta}
+                  onChange={(e) => setDraft({ ...draft, escaleta: e.target.value })}
+                  rows={10}
+                  className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-xs text-slate-100 font-mono focus:outline-none focus:border-violet-500 leading-relaxed"
+                />
+              </div>
             </div>
 
-            <div>
-              <label className="block text-xs font-bold uppercase text-slate-400 mb-1.5">
-                Escaleta Paso a Paso (Beat Sheet):
-              </label>
-              <textarea
-                value={draft.escaleta}
-                onChange={(e) => setDraft({ ...draft, escaleta: e.target.value })}
-                rows={10}
-                className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-xs text-slate-100 font-mono focus:outline-none focus:border-violet-500 leading-relaxed"
-              />
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold uppercase text-slate-400 mb-1.5">
+                  Diálogos (Formato Guion):
+                </label>
+                <textarea
+                  value={draft.dialogos || ''}
+                  onChange={(e) => setDraft({ ...draft, dialogos: e.target.value })}
+                  rows={8}
+                  className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-xs text-slate-100 font-mono focus:outline-none focus:border-violet-500 leading-relaxed"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">
+                    Notas de Diseño de Nivel:
+                  </label>
+                  <textarea
+                    value={draft.diseno_nivel || ''}
+                    onChange={(e) => setDraft({ ...draft, diseno_nivel: e.target.value })}
+                    rows={4}
+                    className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-xs text-slate-200 focus:outline-none focus:border-violet-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">
+                    Efectos de Sonido (SFX):
+                  </label>
+                  <textarea
+                    value={draft.sonido || ''}
+                    onChange={(e) => setDraft({ ...draft, sonido: e.target.value })}
+                    rows={4}
+                    className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-xs text-slate-200 focus:outline-none focus:border-violet-500"
+                  />
+                </div>
+              </div>
             </div>
           </div>
 
-          <div className="space-y-4">
-            <div>
-              <label className="block text-xs font-bold uppercase text-slate-400 mb-1.5">
-                Diálogos (Formato Guion):
-              </label>
-              <textarea
-                value={draft.dialogos || ''}
-                onChange={(e) => setDraft({ ...draft, dialogos: e.target.value })}
-                rows={8}
-                className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-xs text-slate-100 font-mono focus:outline-none focus:border-violet-500 leading-relaxed"
-              />
+          {/* === CONEXIONES / BRANCHING NARRATIVES === */}
+          <div className="p-4 bg-slate-900/80 border border-slate-800 rounded-xl">
+            <h4 className="text-xs font-bold uppercase text-slate-400 mb-3 flex items-center gap-2">
+              <span>🔗</span> Escenas Siguientes (Conexiones)
+            </h4>
+
+            {/* Connection list */}
+            <div className="space-y-1.5 mb-4">
+              {(draft.conexiones || []).length === 0 ? (
+                <p className="text-xs text-slate-500 italic py-2">
+                  Sin conexiones. Esta escena es un punto final de la narrativa.
+                </p>
+              ) : (
+                (draft.conexiones || []).map((conn) => {
+                  const targetScene = allScenes.find((s) => s.id === conn.target_scene_id);
+                  const targetAct = targetScene
+                    ? allActs.find((a) => a.id === targetScene.act_id)
+                    : null;
+                  return (
+                    <div
+                      key={conn.id}
+                      className="flex items-center justify-between bg-slate-950/60 px-3 py-2 rounded-lg border border-slate-800 text-xs group hover:border-slate-700 transition"
+                    >
+                      <span className="text-slate-200 flex items-center gap-1.5">
+                        {conn.label ? (
+                          <>
+                            <span className="text-violet-300 font-medium">[{conn.label}]</span>
+                            <span className="text-slate-500">➔</span>
+                          </>
+                        ) : (
+                          <span className="text-slate-500">➔</span>
+                        )}
+                        <span className="text-indigo-300 font-semibold">
+                          {targetScene?.titulo || '⚠️ Escena eliminada'}
+                        </span>
+                        {targetAct && (
+                          <span className="text-slate-600 text-[10px]">(Acto {targetAct.orden})</span>
+                        )}
+                      </span>
+                      <button
+                        onClick={() => handleRemoveConnection(conn.id)}
+                        className="text-slate-500 hover:text-rose-400 transition px-1"
+                        title="Eliminar conexión"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  );
+                })
+              )}
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">
-                  Notas de Diseño de Nivel:
+            {/* New connection form */}
+            <div className="flex items-end gap-2">
+              <div className="flex-1">
+                <label className="block text-[10px] text-slate-500 mb-1">Escena destino:</label>
+                <select
+                  value={newConnTarget}
+                  onChange={(e) => setNewConnTarget(e.target.value)}
+                  className="w-full bg-slate-950 text-slate-200 text-xs border border-slate-700 rounded-lg px-2 py-1.5 focus:outline-none focus:border-violet-500"
+                >
+                  <option value="">— Seleccionar escena —</option>
+                  {availableTargets.map((s) => {
+                    const act = allActs.find((a) => a.id === s.act_id);
+                    return (
+                      <option key={s.id} value={s.id}>
+                        {s.titulo} ({act ? `Acto ${act.orden}` : 'Sin acto'})
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+              <div className="flex-1">
+                <label className="block text-[10px] text-slate-500 mb-1">
+                  Texto de la opción (opcional):
                 </label>
-                <textarea
-                  value={draft.diseno_nivel || ''}
-                  onChange={(e) => setDraft({ ...draft, diseno_nivel: e.target.value })}
-                  rows={4}
-                  className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-xs text-slate-200 focus:outline-none focus:border-violet-500"
+                <input
+                  type="text"
+                  value={newConnLabel}
+                  onChange={(e) => setNewConnLabel(e.target.value)}
+                  placeholder='Ej: "Abrir la puerta de madera"'
+                  className="w-full bg-slate-950 text-slate-200 text-xs border border-slate-700 rounded-lg px-2 py-1.5 focus:outline-none focus:border-violet-500"
                 />
               </div>
-
-              <div>
-                <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">
-                  Efectos de Sonido (SFX):
-                </label>
-                <textarea
-                  value={draft.sonido || ''}
-                  onChange={(e) => setDraft({ ...draft, sonido: e.target.value })}
-                  rows={4}
-                  className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-xs text-slate-200 focus:outline-none focus:border-violet-500"
-                />
-              </div>
+              <button
+                onClick={handleAddConnection}
+                disabled={!newConnTarget}
+                className="px-3 py-1.5 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white text-xs font-bold rounded-lg shadow disabled:opacity-40 disabled:cursor-not-allowed transition shrink-0"
+              >
+                Conectar
+              </button>
             </div>
           </div>
         </div>
