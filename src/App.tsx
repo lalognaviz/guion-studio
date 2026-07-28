@@ -717,7 +717,6 @@ export function DashboardGuion() {
   const [isMdReaderOpen, setIsMdReaderOpen] = useState(false);
   const [previewTab, setPreviewTab] = useState<'formatted' | 'raw' | 'json'>('formatted');
   const [theme, setTheme] = useState<'light' | 'dark'>('dark');
-  const [isAiOpen, setIsAiOpen] = useState(false);
   const [notification, setNotification] = useState<string | null>(null);
   const [isTweeExportOpen, setIsTweeExportOpen] = useState(false);
   const [tweeFormat, setTweeFormat] = useState<'Harlowe' | 'SugarCube'>('Harlowe');
@@ -1346,12 +1345,6 @@ export function DashboardGuion() {
           >
             {theme === 'dark' ? '☀️ Claro' : '🌙 Oscuro'}
           </button>
-          <button
-            onClick={() => setIsAiOpen(!isAiOpen)}
-            className="bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white text-xs font-semibold px-3.5 py-1.5 rounded-lg transition shadow-md flex items-center gap-1.5"
-          >
-            <span>✨ Asistente IA</span>
-          </button>
         </div>
       </header>
 
@@ -1363,8 +1356,7 @@ export function DashboardGuion() {
       )}
 
       {/* Main Script Dashboard Body */}
-      <div className="flex-1 flex overflow-hidden">
-        <main className="flex-1 p-6 overflow-y-auto max-w-7xl mx-auto w-full space-y-6">
+      <main className="flex-1 p-6 overflow-y-auto max-w-7xl mx-auto w-full space-y-6">
           
           {/* UNIFIED PROJECT DETAILS CARD (EDITABLE) */}
           <div className="bg-slate-900/80 backdrop-blur-sm border border-slate-800/80 rounded-2xl p-6 shadow-2xl space-y-4">
@@ -1629,43 +1621,6 @@ export function DashboardGuion() {
             })}
           </div>
         </main>
-
-        {/* AI Assistant Drawer */}
-        {isAiOpen && (
-          <aside className="w-80 bg-slate-900/90 backdrop-blur-md border-l border-slate-800 p-5 flex flex-col justify-between shadow-2xl">
-            <div>
-              <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-800">
-                <h3 className="font-bold text-sm text-violet-300 flex items-center gap-2">
-                  <span>✨</span> Asistente Narrativo
-                </h3>
-                <button
-                  onClick={() => setIsAiOpen(false)}
-                  title="Cerrar asistente"
-                  className="text-slate-400 hover:text-white text-xs"
-                >
-                  ✕
-                </button>
-              </div>
-
-              <div className="space-y-3 text-xs text-slate-300">
-                <p className="bg-slate-950/60 p-3 rounded-xl border border-slate-800 leading-relaxed">
-                  Hola. Puedo ayudarte a sugerir ideas para escenas, generar diálogos o revisar la estructura del guion.
-                </p>
-
-                <button
-                  onClick={() => showNotification('Sugerencia: Añadir una revelación al final del Acto 2')}
-                  className="w-full text-left bg-slate-800/70 hover:bg-slate-800 p-3 rounded-xl border border-slate-700/80 text-violet-200 transition font-medium"
-                >
-                  💡 Sugerir giro argumental
-                </button>
-              </div>
-            </div>
-            <div className="text-[10px] text-slate-500 text-center pt-4 border-t border-slate-800">
-              Integración Local LLM Activa
-            </div>
-          </aside>
-        )}
-      </div>
 
       {/* Maximized Scene Modal */}
       {maximizedScene && (
