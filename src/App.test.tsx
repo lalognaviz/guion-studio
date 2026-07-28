@@ -132,7 +132,7 @@ describe('GuionStudio App & Unified Script Dashboard', () => {
     expect(screen.getByDisplayValue('Callejón Confirmado')).toBeInTheDocument();
   });
 
-  it('opens Archivo menu and exports Markdown file (.md)', () => {
+  it('opens Archivo menu and exports Markdown file (.md)', async () => {
     render(<App initialRoute="/tablero/1" />);
     const archivoBtn = screen.getByRole('button', { name: /📂 Archivo/i });
     fireEvent.click(archivoBtn);
@@ -143,7 +143,9 @@ describe('GuionStudio App & Unified Script Dashboard', () => {
     const saveMdOption = screen.getByText(/Guardar en \.md/i);
     fireEvent.click(saveMdOption);
 
-    expect(screen.getByText(/Guion guardado como "CyberNights\.md"/i)).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText(/Guion guardado como "CyberNights\.md"/i)).toBeInTheDocument();
+    });
   });
 
   it('persists newly created projects so they appear in the Dashboard list', async () => {
@@ -283,7 +285,7 @@ describe('GuionStudio App & Unified Script Dashboard', () => {
     expect(screen.getByText(/1 conexión/i)).toBeInTheDocument();
   });
 
-  it('opens Archivo menu and exports Twine file (.twee) in Harlowe or SugarCube format', () => {
+  it('opens Archivo menu and exports Twine file (.twee) in Harlowe or SugarCube format', async () => {
     render(<App initialRoute="/tablero/1" />);
     const archivoBtn = screen.getByRole('button', { name: /📂 Archivo/i });
     fireEvent.click(archivoBtn);
@@ -303,6 +305,8 @@ describe('GuionStudio App & Unified Script Dashboard', () => {
     const exportBtn = screen.getByRole('button', { name: /^Exportar \.twee$/i });
     fireEvent.click(exportBtn);
 
-    expect(screen.getByText(/Guion exportado como "CyberNights\.twee" \(Harlowe\)/i)).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText(/Guion exportado como "CyberNights\.twee" \(Harlowe\)/i)).toBeInTheDocument();
+    });
   });
 });

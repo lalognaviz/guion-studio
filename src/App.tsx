@@ -1007,7 +1007,45 @@ export function DashboardGuion() {
     }
   };
 
-  const handleSaveJson = () => {
+  const saveFileWithPicker = async (
+    content: string,
+    defaultName: string,
+    mimeType: string,
+    extension: string,
+    description: string
+  ) => {
+    if ('showSaveFilePicker' in window) {
+      try {
+        const handle = await (window as any).showSaveFilePicker({
+          suggestedName: defaultName,
+          types: [
+            {
+              description,
+              accept: { [mimeType]: [extension] },
+            },
+          ],
+        });
+        const writable = await handle.createWritable();
+        await writable.write(content);
+        await writable.close();
+        return true;
+      } catch (err: any) {
+        if (err.name === 'AbortError') {
+          return false;
+        }
+      }
+    }
+    const blob = new Blob([content], { type: `${mimeType};charset=utf-8` });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = defaultName;
+    a.click();
+    URL.revokeObjectURL(url);
+    return true;
+  };
+
+  const handleSaveJson = async () => {
     const data: ProjectData = {
       id: projectId,
       title: projectTitle,
@@ -1017,18 +1055,21 @@ export function DashboardGuion() {
       updatedAt: new Date().toISOString(),
     };
     saveProjectToStorage(data);
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${projectTitle.toLowerCase().replace(/\s+/g, '_')}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-    showNotification(`Proyecto "${projectTitle}" guardado exitosamente (.json)`);
+    const jsonStr = JSON.stringify(data, null, 2);
+    const saved = await saveFileWithPicker(
+      jsonStr,
+      `${projectTitle.toLowerCase().replace(/\s+/g, '_')}.json`,
+      'application/json',
+      '.json',
+      'Archivo JSON de GuionStudio'
+    );
+    if (saved) {
+      showNotification(`Proyecto "${projectTitle}" guardado exitosamente (.json)`);
+    }
     setIsFileMenuOpen(false);
   };
 
-  const handleSaveAsSubmit = () => {
+  const handleSaveAsSubmit = async () => {
     if (!saveAsTitleInput.trim()) return;
     const newTitle = saveAsTitleInput.trim();
     setProjectTitle(newTitle);
@@ -1041,15 +1082,18 @@ export function DashboardGuion() {
       updatedAt: new Date().toISOString(),
     };
     saveProjectToStorage(data);
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${newTitle.toLowerCase().replace(/\s+/g, '_')}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
+    const jsonStr = JSON.stringify(data, null, 2);
+    const saved = await saveFileWithPicker(
+      jsonStr,
+      `${newTitle.toLowerCase().replace(/\s+/g, '_')}.json`,
+      'application/json',
+      '.json',
+      'Archivo JSON de GuionStudio'
+    );
+    if (saved) {
+      showNotification(`Proyecto guardado como "${newTitle}"`);
+    }
     setIsSaveAsModalOpen(false);
-    showNotification(`Proyecto guardado como "${newTitle}"`);
   };
 
   const handleOpenJson = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -1084,16 +1128,18 @@ export function DashboardGuion() {
     setIsFileMenuOpen(false);
   };
 
-  const handleSaveMd = () => {
+  const handleSaveMd = async () => {
     const mdContent = generateMarkdownText();
-    const blob = new Blob([mdContent], { type: 'text/markdown' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${projectTitle}.md`;
-    a.click();
-    URL.revokeObjectURL(url);
-    showNotification(`Guion guardado como "${projectTitle}.md"`);
+    const saved = await saveFileWithPicker(
+      mdContent,
+      `${projectTitle}.md`,
+      'text/markdown',
+      '.md',
+      'Documento Markdown'
+    );
+    if (saved) {
+      showNotification(`Guion guardado como "${projectTitle}.md"`);
+    }
     setIsFileMenuOpen(false);
   };
 
@@ -1180,16 +1226,18 @@ export function DashboardGuion() {
     return twee;
   };
 
-  const handleSaveTwee = (format: 'Harlowe' | 'SugarCube') => {
+  const handleSaveTwee = async (format: 'Harlowe' | 'SugarCube') => {
     const tweeContent = generateTweeText(format);
-    const blob = new Blob([tweeContent], { type: 'text/plain;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${projectTitle}.twee`;
-    a.click();
-    URL.revokeObjectURL(url);
-    showNotification(`Guion exportado como "${projectTitle}.twee" (${format})`);
+    const saved = await saveFileWithPicker(
+      tweeContent,
+      `${projectTitle}.twee`,
+      'text/plain',
+      '.twee',
+      'Archivo de Twine (Twee 3)'
+    );
+    if (saved) {
+      showNotification(`Guion exportado como "${projectTitle}.twee" (${format})`);
+    }
     setIsTweeExportOpen(false);
     setIsFileMenuOpen(false);
   };
