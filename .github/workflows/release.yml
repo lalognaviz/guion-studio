@@ -11,9 +11,10 @@ permissions:
 jobs:
   build-and-release:
     runs-on: windows-latest
+    timeout-minutes: 45
 
     steps:
-      # 1. Clonar el repositorio con historial completo
+      # 1. Clonar el repositorio (clone shallow, depth 1 por defecto)
       - name: Checkout repository
         uses: actions/checkout@v4
 
@@ -48,16 +49,12 @@ jobs:
       - name: Backend tests (Go)
         run: go test ./...
 
-      # 6. Instalar el CLI de Wails (misma versión que go.mod)
+      # 6. Instalar el CLI de Wails (misma versión declarada en go.mod)
       - name: Install Wails CLI
-        run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.16.0
+        shell: bash
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@$(go list -m -f '{{.Version}}' github.com/wailsapp/wails/v2)
 
-      # 6b. Asegurar que GOPATH/bin esté en PATH
-      - name: Add GOPATH/bin to PATH
-        run: echo "$(go env GOPATH)\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-        shell: powershell
-
-      # 6c. Gate de bindings: generar y verificar que frontend/wailsjs esté sincronizado
+      # 6b. Gate de bindings: generar y verificar que frontend/wailsjs esté sincronizado
       - name: Check bindings are in sync
         shell: bash
         run: |
@@ -69,26 +66,67 @@ jobs:
             exit 1
           fi
 
-      # 6d. Asegurar NSIS instalado (evita build sin instalador)
+      # 7. Asegurar NSIS instalado (evita build sin instalador)
       - name: Ensure NSIS
         shell: powershell
         run: |
           if (-not (Get-Command makensis -ErrorAction SilentlyContinue)) {
             choco install nsis -y --no-progress
+            $nsisDir = "C:\Program Files (x86)\NSIS"
+            if (Test-Path (Join-Path $nsisDir "makensis.exe")) {
+              Add-Content -Path $env:GITHUB_PATH -Value $nsisDir
+              Write-Host "NSIS instalado y agregado al PATH para los pasos siguientes"
+            }
           } else {
             Write-Host "makensis already installed"
           }
 
-      # 7. Compilar frontend + backend y generar el instalador NSIS
+      # 7b. Verificar que makensis ejecute de verdad (Wails solo emite un warning si falta)
+      - name: Verify makensis
+        shell: powershell
+        run: |
+          $cmd = Get-Command makensis -ErrorAction SilentlyContinue
+          if (-not $cmd) {
+            Write-Host "::error::makensis no disponible en PATH; no se generará el instalador NSIS"
+            exit 1
+          }
+          & $cmd.Source /VERSION
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "::error::makensis falló al ejecutarse (exit $LASTEXITCODE)"
+            exit 1
+          }
+
+      # 8. Compilar frontend + backend y generar el instalador NSIS
       - name: Build with Wails
         run: wails build -nsis -platform windows/amd64
 
-      # 8. Adjuntar ejecutable portable e instalador a la Release
+      # 8b. Exigir ambos artefactos: Wails NO falla si makensis falta (solo avisa),
+      #      y el glob del upload seguiría matcheando el .exe portable.
+      - name: Verify release artifacts
+        shell: powershell
+        run: |
+          $required = @(
+            "build/bin/guion-studio.exe",
+            "build/bin/guion-studio-amd64-installer.exe"
+          )
+          $failed = $false
+          foreach ($f in $required) {
+            if (Test-Path $f) {
+              Write-Host "OK  $f"
+            } else {
+              Write-Host "::error::Falta el artefacto: $f"
+              $failed = $true
+            }
+          }
+          if ($failed) { exit 1 }
+
+      # 9. Adjuntar ejecutable portable e instalador a la Release (borrador)
       - name: Upload release artifacts
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
           name: 'GuionStudio ${{ github.ref_name }}'
+          draft: true
           body: |
             ## 🎬 GuionStudio ${{ github.ref_name }}
 

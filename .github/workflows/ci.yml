@@ -1,0 +1,72 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      # 1. Clonar el repositorio (clone shallow, depth 1 por defecto)
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 2. Configurar Node.js v22 LTS (jsdom/vitest requieren >=20.19)
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      # 3. Instalar dependencias del frontend
+      - name: Install frontend dependencies
+        run: npm ci
+        working-directory: frontend
+
+      # 4. Verificaciones estáticas del frontend (orden documentado: tsc → vitest)
+      - name: Typecheck (tsc)
+        run: npx tsc --noEmit
+        working-directory: frontend
+
+      - name: Frontend tests (Vitest)
+        run: npm test
+        working-directory: frontend
+
+      # 5. Configurar Go (versión mínima declarada en go.mod)
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      # 6. Backend tests (Go)
+      - name: Backend tests (Go)
+        run: go test ./...
+
+      # 7. Instalar el CLI de Wails (misma versión declarada en go.mod)
+      - name: Install Wails CLI
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@$(go list -m -f '{{.Version}}' github.com/wailsapp/wails/v2)
+
+      # 7b. Dependencias de escritorio necesarias para compilar el app en Linux
+      - name: Install Linux desktop dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libgtk-3-dev libwebkit2gtk-4.1-dev
+
+      # 7c. Gate de bindings: generar y verificar que frontend/wailsjs esté sincronizado
+      - name: Check bindings are in sync
+        run: |
+          wails generate module
+          if [ -n "$(git status --porcelain -- frontend/wailsjs)" ]; then
+            echo "::error::frontend/wailsjs stale — run 'wails generate module' and commit"
+            git status --porcelain -- frontend/wailsjs
+            git diff -- frontend/wailsjs
+            exit 1
+          fi
