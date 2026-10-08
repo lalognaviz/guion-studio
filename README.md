@@ -17,65 +17,75 @@
 
 ## 🛠️ Tecnologías Utilizadas
 
-- **Framework de Escritorio**: [Tauri v2](https://tauri.app/) (Rust)
+- **Framework de Escritorio**: [Wails v2](https://wails.io/) (Go) — backend Go + WebView2 del sistema
 - **Frontend UI**: [React 19](https://react.dev/) + [TypeScript](https://www.typescriptlang.org/) + [Vite](https://vitejs.dev/)
 - **Estilos**: [TailwindCSS 3.4](https://tailwindcss.com/)
-- **Base de Datos**: [SQLite](https://sqlite.org/) via `tauri-plugin-sql` y `rusqlite`
-- **Testing**: [Vitest](https://vitest.dev/) + [React Testing Library](https://testing-library.com/)
+- **Base de Datos**: [SQLite](https://sqlite.org/) vía [`modernc.org/sqlite`](https://pkg.go.dev/modernc.org/sqlite) (Go puro, sin CGO)
+- **Testing**: [Vitest](https://vitest.dev/) + [React Testing Library](https://testing-library.com/) + `go test`
 
 ---
 
 ## 🚀 Guía de Inicio Rápido
 
 ### Requisitos Previos
-- [Node.js](https://nodejs.org/) (v18+)
-- [Rust](https://www.rust-lang.org/) (para compilar con Tauri)
+- [Go](https://go.dev/dl/) **1.25 o superior** (para Wails y el backend)
+- [Node.js](https://nodejs.org/) **20.19+ / 22+** (jsdom no funciona en Node 18)
+- CLI de Wails: `go install github.com/wailsapp/wails/v2/cmd/wails@v2.16.0`
+- **Windows**: WebView2 Runtime (incluido en Windows 10/11)
+- **Linux**: `sudo apt-get install libgtk-3-dev libwebkit2gtk-4.1-dev` (comprobar con `wails doctor`). Ubuntu 24.04+ solo incluye webkit2gtk-4.1, por eso `wails.json` fija el build tag `webkit2_41`.
+- **Windows (para `wails build -nsis`)**: [NSIS](https://nsis.sourceforge.io/) debe estar disponible en PATH (el CI lo instala automáticamente).
 
 ### Instalación
 
-1. **Clonar el repositorio e instalar dependencias:**
-   ```bash
-   git clone https://github.com/lalognaviz/guion-studio.git
-   cd guion-studio
-   npm install
-   ```
+```bash
+git clone https://github.com/lalognaviz/guion-studio.git
+cd guion-studio
+npm --prefix frontend install
+```
 
-2. **Ejecutar en modo Desarrollo Web:**
-   ```bash
-   npm run dev
-   ```
+### Ejecutar en modo Desarrollo (Escritorio, con backend Go)
 
-3. **Ejecutar en modo Desarrollo de Escritorio (Tauri):**
-   ```bash
-   npm run tauri dev
-   ```
+```bash
+wails dev
+```
+
+### Ejecutar en modo Desarrollo Web (sin backend, datos en localStorage)
+
+```bash
+npm --prefix frontend run dev
+```
 
 ---
 
 ## 🧪 Pruebas Unitarias y Verificación
 
-El proyecto cuenta con cobertura de pruebas automatizadas tanto en el frontend como en el backend Rust:
-
-- **Pruebas del Frontend (Vitest)**:
+- **Frontend (Vitest + React Testing Library)** — 16 pruebas:
   ```bash
-  npm test
+  npm --prefix frontend test
   ```
-  *(11 pruebas unitarias cubriendo el flujo del tablero, modales, persistencia y exportación)*
-
-- **Pruebas del Backend (Rust)**:
+- **Typecheck (TypeScript estricto)**:
   ```bash
-  cargo test --manifest-path src-tauri/Cargo.toml
+  cd frontend && npx tsc --noEmit
+  ```
+- **Backend (Go)** — esquema, seed y consultas:
+  ```bash
+  go test ./...
   ```
 
-- **Compilación a Ejecutable Windows (.exe)**:
-  ```bash
-  npm run tauri build
-  ```
-  *(Genera el binario ejecutable standalone en `src-tauri/target/release/guion-studio.exe` y los paquetes de instalación en `src-tauri/target/release/bundle/`)*
+### Compilar para Producción
+
+```bash
+wails build -nsis
+```
+
+- Ejecutable portable: `build/bin/guion-studio.exe`
+- Instalador NSIS: `build/bin/guion-studio-amd64-installer.exe`
+
+Sin flag `-nsis` solo se genera el ejecutable.
 
 ---
 
 ## 📄 Documentación Adicional
 
-- [📖 Documentación de Desarrollo](file:///C:/Users/lisan/OneDrive/Escritorio/guionstudio/guion-studio/DOCUMENTACION_DESARROLLO.md): Arquitectura detallada, modelo de base de datos SQLite y guía de módulos.
-- [🤖 Guía para Agentes IA (AGENTS.md)](file:///C:/Users/lisan/OneDrive/Escritorio/guionstudio/guion-studio/AGENTS.md): Reglas de código, contratos de datos y flujos de desarrollo para asistentes de inteligencia artificial.
+- [📖 Documentación de Desarrollo](DOCUMENTACION_DESARROLLO.md): Arquitectura detallada, modelo de base de datos SQLite y guía de módulos.
+- [🤖 Guía para Agentes IA (AGENTS.md)](AGENTS.md): Reglas de código, contratos de datos y flujos de desarrollo para asistentes de inteligencia artificial.

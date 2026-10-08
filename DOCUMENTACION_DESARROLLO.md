@@ -8,12 +8,13 @@
 
 | Capa | Tecnología | Descripción |
 | :--- | :--- | :--- |
-| **Framework de Escritorio** | **Tauri v2** | Proporciona un entorno liviano, rápido y seguro sobre Rust (`src-tauri`). |
+| **Framework de Escritorio** | **Wails v2 (Go)** | Backend Go + webview nativo del sistema (WebView2 en Windows) (`main.go`, `app.go`). |
 | **Frontend** | **React 19 + TypeScript + Vite** | Interfaz reactiva en tiempo real con verificación estática de tipos. |
 | **Estilos CSS** | **TailwindCSS 3.4** | Sistema de diseño adaptable (modo oscuro/claro) con estética *slate dark* y *glassmorphism*. |
-| **Persistencia Backend** | **SQLite (`tauri-plugin-sql` / `rusqlite`)** | Migraciones de base de datos relacional para proyectos, actos y escenas en entorno de escritorio. |
-| **Persistencia Frontend** | **`localStorage` + JSON / MD** | Capa de almacenamiento local automático y selector nativo de archivos con respaldo ante entornos sin IPC. |
-| **Testing** | **Vitest + React Testing Library + Rust Cargo** | Cobertura de pruebas unitarias de UI (11 tests passing) y pruebas de base de datos Rust. |
+| **Persistencia Backend** | **SQLite (`modernc.org/sqlite`)** | Driver SQLite en Go puro (sin CGO); esquema y seed en `internal/store`. |
+| **Persistencia Frontend** | **`localStorage` + JSON / MD** | Almacenamiento local automático con respaldo ante entornos sin bindings Wails. |
+| **Puente Frontend↔Backend** | **Wails bindings (`frontend/wailsjs/`)** | Métodos Go llamados desde TypeScript con tipos generados automáticamente. |
+| **Testing** | **Vitest + React Testing Library + `go test`** | 16 pruebas de UI en `frontend/src/App.test.tsx` y pruebas de base de datos en Go. |
 
 ---
 
@@ -105,41 +106,43 @@ Ubicado en el menú desplegable de la barra superior:
 
 ### 4.1. Ejecutar las Pruebas Unitarias del Frontend (Vitest)
 ```bash
-npm run test
+npm --prefix frontend test
 ```
-*Resultado*: **11 tests unitarios aprobados exitosamente** en [src/App.test.tsx](file:///C:/Users/lisan/OneDrive/Escritorio/guionstudio/guion-studio/src/App.test.tsx).
+*Resultado*: **16 tests unitarios aprobados exitosamente** en [frontend/src/App.test.tsx](frontend/src/App.test.tsx).
 
-### 4.2. Ejecutar las Pruebas Backend de Rust
+### 4.2. Ejecutar las Pruebas Backend de Go
 ```bash
-cargo test --manifest-path src-tauri/Cargo.toml
+go test ./...
 ```
-*Resultado*: Pruebas de integración y migraciones de SQLite pasadas en `src-tauri/src/main.rs`.
+*Resultado*: Pruebas de esquema, seed y consultas SQLite en `internal/store/store_test.go`.
 
-### 4.3. Compilar la Aplicación para Producción (.exe)
+### 4.3. Verificación estática (TypeScript)
+```bash
+cd frontend && npx tsc --noEmit
+```
 
-Para generar el ejecutable standalone (`.exe`) de Windows y el paquete de instalación ejecutable:
+### 4.4. Compilar la Aplicación para Producción
 
-#### 1. Requisitos Previos en Windows
-- **Node.js**: v18 o superior (`node -v`)
-- **Rust Toolchain**: `rustc` y `cargo` instalados a través de [rustup.rs](https://rustup.rs/)
-- **C++ Build Tools**: Microsoft Visual Studio C++ Build Tools (con la carga de trabajo "Desarrollo para el escritorio con C++")
-- **WebView2**: Incluido por defecto en Windows 10/11 (Runtime para renderizar el frontend)
+#### 1. Requisitos Previos
+- **Go**: 1.25 o superior
+- **Node.js**: 20.19+ / 22+
+- **CLI de Wails**: `go install github.com/wailsapp/wails/v2/cmd/wails@v2.16.0`
+- **Windows**: WebView2 Runtime (incluido en Windows 10/11) y NSIS (para el instalador)
+- **Linux**: `libgtk-3-dev` y `libwebkit2gtk-4.1-dev` (Ubuntu 24.04+ solo trae webkit2gtk-4.1; `wails.json` fija el build tag `webkit2_41` para ese caso)
 
 #### 2. Comando de Compilación
-Ejecuta el comando oficial de compilación de Tauri:
 ```bash
-npm run tauri build
+wails build -nsis
 ```
 
 #### 3. Flujo Automático del Proceso de Compilación
-1. **`beforeBuildCommand`**: Ejecuta `npm run build` (`tsc && vite build`), verificando tipos de TypeScript y generando los activos estáticos optimizados en `dist/`.
-2. **Compilación de Backend en Rust**: `cargo` compila el código Rust (`src-tauri/src/main.rs`) en modo Release con optimizaciones de rendimiento y vinculación estática de SQLite.
-3. **Generación del Ejecutable y Bundles**: Tauri empaqueta el binario `.exe` junto con el frontend y recursos necesarios.
+1. **`frontend:build`**: Ejecuta `npm run build` (`tsc && vite build`), verificando tipos de TypeScript y generando los activos estáticos optimizados en `frontend/dist/`.
+2. **Compilación del Backend en Go**: `go build` compila el backend (`main.go`, `app.go`, `internal/store`) e incrusta el frontend con `go:embed`.
+3. **Generación del Ejecutable y Bundles**: Wails empaqueta el binario junto con el frontend y, con `-nsis`, genera el instalador.
 
 #### 4. Ubicación de los Archivos Generados
-Una vez completado el comando de compilación, los binarios se encuentran en:
-- **Ejecutable Standalone Directo**: `src-tauri/target/release/guion-studio.exe`
-- **Instalador Ejecutable (NSIS/MSI)**: `src-tauri/target/release/bundle/nsis/` o `src-tauri/target/release/bundle/msi/`
+- **Ejecutable Standalone Directo**: `build/bin/guion-studio.exe`
+- **Instalador NSIS**: `build/bin/guion-studio-amd64-installer.exe`
 
 ---
 
@@ -147,19 +150,24 @@ Una vez completado el comando de compilación, los binarios se encuentran en:
 
 ```
 guion-studio/
-├── AGENTS.md               # Guía técnica y directivas para Agentes IA
+├── AGENTS.md                  # Guía técnica y directivas para Agentes IA
 ├── DOCUMENTACION_DESARROLLO.md # Documentación detallada de arquitectura y modelos
-├── README.md               # Resumen público del proyecto y guía rápida
-├── src/
-│   ├── App.tsx             # Aplicación principal React (Tablero, Modales, Estado, Lector MD)
-│   ├── App.test.tsx        # Suite de 11 pruebas unitarias Vitest
-│   ├── main.tsx            # Punto de entrada de React
-│   └── index.css           # Directivas TailwindCSS y utilidades de diseño
-├── src-tauri/
-│   ├── Cargo.toml          # Configuración de dependencias de Rust
-│   ├── tauri.conf.json     # Configuración del paquete Tauri v2
-│   └── src/
-│       ├── main.rs         # Servidor Rust, migraciones SQLite y comandos IPC
-│       └── models.rs       # Estructuras de datos Rust para IPC
-└── package.json            # Scripts de ejecución, build y vitest
+├── README.md                  # Resumen público del proyecto y guía rápida
+├── wails.json                 # Configuración del proyecto Wails (frontend, bindings)
+├── main.go                    # Punto de entrada Wails (ventana + go:embed del frontend)
+├── app.go                     # Métodos Go vinculados a JavaScript (bindings IPC)
+├── go.mod / go.sum            # Dependencias Go (wails, modernc.org/sqlite)
+├── internal/store/
+│   ├── store.go               # Esquema SQLite, seed y consultas
+│   └── store_test.go          # Pruebas del backend
+├── frontend/
+│   ├── src/
+│   │   ├── App.tsx            # Router principal (MemoryRouter, 4 rutas)
+│   │   ├── App.test.tsx       # Suite de 16 pruebas unitarias Vitest
+│   │   ├── pages/             # Dashboard, DashboardGuion, EditorActo
+│   │   ├── components/        # MaximizedSceneModal y UI reutilizable
+│   │   ├── lib/               # types.ts, storage.ts (localStorage + seed)
+│   │   └── api/client.ts      # Puente IPC a bindings Wails con fallback
+│   └── wailsjs/               # Bindings TypeScript GENERADOS (no editar)
+└── build/                     # Iconos, manifiestos y scripts NSIS de Wails
 ```

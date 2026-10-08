@@ -9,13 +9,14 @@ lerna-debug.log*
 
 # Node dependencies & builds
 node_modules
-dist
+frontend/dist/*
+!frontend/dist/gitkeep
 dist-ssr
 *.local
 
-# Tauri & Rust build artifacts
-src-tauri/target
-src-tauri/gen
+# Wails build artifacts
+build/bin
+*.md5
 
 # Local SQLite databases & temporary exports
 *.db

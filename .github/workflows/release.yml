@@ -17,53 +17,91 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2. Configurar Node.js v22 LTS
+      # 2. Configurar Node.js v22 LTS (jsdom/vitest requieren >=20.19)
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '22'
           cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
 
       # 3. Instalar dependencias del frontend
       - name: Install frontend dependencies
         run: npm ci
+        working-directory: frontend
 
-      # 4. Configurar Rust toolchain estable
-      - name: Setup Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-
-      # 5. Caché de dependencias Rust (acelera compilaciones futuras ~5x)
-      - name: Cache Rust dependencies
-        uses: Swatinem/rust-cache@v2
+      # 4. Configurar Go (versión mínima declarada en go.mod)
+      - name: Setup Go
+        uses: actions/setup-go@v5
         with:
-          workspaces: './src-tauri -> target'
+          go-version-file: go.mod
 
-      # 6. Compilar frontend + backend Tauri y crear la Release con instaladores
-      - name: Build and release with Tauri
-        uses: tauri-apps/tauri-action@v0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tagName: ${{ github.ref_name }}
-          releaseName: 'GuionStudio ${{ github.ref_name }}'
-          releaseBody: |
-            ## 🎬 GuionStudio ${{ github.ref_name }}
+      # 5. Verificaciones antes de compilar
+      - name: Frontend tests (Vitest)
+        run: npm test
+        working-directory: frontend
 
-            Descarga el instalador para tu sistema:
-            - **`*-setup.exe`** — Instalador NSIS (recomendado para usuarios finales)
-            - **`*.msi`** — Instalador MSI (para despliegue empresarial / Group Policy)
-            - **`guion-studio.exe`** — Ejecutable portable (sin instalación requerida)
+      - name: Typecheck (tsc)
+        run: npx tsc --noEmit
+        working-directory: frontend
 
-            ---
-            *Compilado automáticamente desde el tag `${{ github.ref_name }}`.*
-          releaseDraft: false
-          prerelease: false
+      - name: Backend tests (Go)
+        run: go test ./...
 
-      # 7. Adjuntar el ejecutable portable a la misma Release
-      - name: Upload portable executable
+      # 6. Instalar el CLI de Wails (misma versión que go.mod)
+      - name: Install Wails CLI
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.16.0
+
+      # 6b. Asegurar que GOPATH/bin esté en PATH
+      - name: Add GOPATH/bin to PATH
+        run: echo "$(go env GOPATH)\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+        shell: powershell
+
+      # 6c. Gate de bindings: generar y verificar que frontend/wailsjs esté sincronizado
+      - name: Check bindings are in sync
+        shell: bash
+        run: |
+          wails generate module
+          if [ -n "$(git status --porcelain -- frontend/wailsjs)" ]; then
+            echo "::error::frontend/wailsjs stale — run 'wails generate module' and commit"
+            git status --porcelain -- frontend/wailsjs
+            git diff -- frontend/wailsjs
+            exit 1
+          fi
+
+      # 6d. Asegurar NSIS instalado (evita build sin instalador)
+      - name: Ensure NSIS
+        shell: powershell
+        run: |
+          if (-not (Get-Command makensis -ErrorAction SilentlyContinue)) {
+            choco install nsis -y --no-progress
+          } else {
+            Write-Host "makensis already installed"
+          }
+
+      # 7. Compilar frontend + backend y generar el instalador NSIS
+      - name: Build with Wails
+        run: wails build -nsis -platform windows/amd64
+
+      # 8. Adjuntar ejecutable portable e instalador a la Release
+      - name: Upload release artifacts
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
-          files: src-tauri/target/release/guion-studio.exe
+          name: 'GuionStudio ${{ github.ref_name }}'
+          body: |
+            ## 🎬 GuionStudio ${{ github.ref_name }}
+
+            Descarga el instalador para tu sistema:
+            - **`guion-studio-amd64-installer.exe`** — Instalador NSIS (recomendado para usuarios finales)
+            - **`guion-studio.exe`** — Ejecutable portable (sin instalación requerida)
+
+            Requiere el [WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/) (incluido en Windows 10/11).
+
+            ---
+            *Compilado automáticamente desde el tag `${{ github.ref_name }}`.*
+          files: |
+            build/bin/*.exe
+          fail_on_unmatched_files: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
