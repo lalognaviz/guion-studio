@@ -49,29 +49,29 @@ export function MaximizedSceneModal({
     .filter((s) => !(draft.conexiones || []).some((c) => c.target_scene_id === s.id));
 
   return (
-    <div className="fixed inset-0 bg-black/85 backdrop-blur-md flex items-center justify-center p-6 z-50">
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-5xl h-[90vh] flex flex-col shadow-2xl overflow-hidden">
+    <div className="fixed inset-0 bg-brand-bg/95 backdrop-blur-md flex items-center justify-center p-6 z-50">
+      <div className="bg-brand-surface border border-[#3B3E47] rounded-2xl w-full max-w-5xl h-[90vh] flex flex-col shadow-2xl overflow-hidden">
         {/* Header */}
-        <div className="px-6 py-4 bg-slate-950 border-b border-slate-800 flex items-center justify-between">
+        <div className="px-6 py-4 bg-brand-bg border-b border-[#3B3E47] flex items-center justify-between">
           <div className="flex items-center gap-3 flex-1">
-            <span className="text-lg text-violet-400">⛶</span>
+            <span className="text-lg text-[#FD7014]">⛶</span>
             <input
               type="text"
               value={draft.titulo}
               onChange={(e) => setDraft({ ...draft, titulo: e.target.value })}
-              className="bg-slate-900 text-slate-100 font-bold text-lg px-3 py-1 rounded-xl border border-slate-800 focus:outline-none focus:border-violet-500 flex-1 max-w-md"
+              className="bg-brand-surface text-slate-100 font-bold text-lg px-3 py-1 rounded-xl border border-[#3B3E47] focus:outline-none focus:border-[#FD7014] flex-1 max-w-md"
             />
           </div>
           <h4 className="text-xs text-slate-400 font-medium mr-4">
             Edición Cómoda de Escena y Escaleta Detallada
           </h4>
-          <button onClick={onClose} className="text-slate-400 hover:text-white text-sm">
+          <button onClick={onClose} className="text-slate-400 hover:text-brand-text text-sm">
             ✕
           </button>
         </div>
 
         {/* Body */}
-        <div className="flex-1 p-6 overflow-y-auto space-y-6 bg-slate-950/60">
+        <div className="flex-1 p-6 overflow-y-auto space-y-6 bg-brand-bg/60">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-4">
               <div>
@@ -82,7 +82,7 @@ export function MaximizedSceneModal({
                   value={draft.descripcion}
                   onChange={(e) => setDraft({ ...draft, descripcion: e.target.value })}
                   rows={3}
-                  className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-sm text-slate-100 focus:outline-none focus:border-violet-500"
+                  className="w-full bg-brand-surface border border-[#3B3E47] rounded-xl p-3 text-sm text-slate-100 focus:outline-none focus:border-[#FD7014]"
                 />
               </div>
 
@@ -94,7 +94,7 @@ export function MaximizedSceneModal({
                   value={draft.escaleta}
                   onChange={(e) => setDraft({ ...draft, escaleta: e.target.value })}
                   rows={10}
-                  className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-xs text-slate-100 font-mono focus:outline-none focus:border-violet-500 leading-relaxed"
+                  className="w-full bg-brand-surface border border-[#3B3E47] rounded-xl p-3 text-xs text-slate-100 font-mono focus:outline-none focus:border-[#FD7014] leading-relaxed"
                 />
               </div>
             </div>
@@ -108,7 +108,7 @@ export function MaximizedSceneModal({
                   value={draft.dialogos || ''}
                   onChange={(e) => setDraft({ ...draft, dialogos: e.target.value })}
                   rows={8}
-                  className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-xs text-slate-100 font-mono focus:outline-none focus:border-violet-500 leading-relaxed"
+                  className="w-full bg-brand-surface border border-[#3B3E47] rounded-xl p-3 text-xs text-slate-100 font-mono focus:outline-none focus:border-[#FD7014] leading-relaxed"
                 />
               </div>
 
@@ -121,7 +121,7 @@ export function MaximizedSceneModal({
                     value={draft.diseno_nivel || ''}
                     onChange={(e) => setDraft({ ...draft, diseno_nivel: e.target.value })}
                     rows={4}
-                    className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-xs text-slate-200 focus:outline-none focus:border-violet-500"
+                    className="w-full bg-brand-surface border border-[#3B3E47] rounded-xl p-2.5 text-xs text-slate-200 focus:outline-none focus:border-[#FD7014]"
                   />
                 </div>
 
@@ -133,7 +133,7 @@ export function MaximizedSceneModal({
                     value={draft.sonido || ''}
                     onChange={(e) => setDraft({ ...draft, sonido: e.target.value })}
                     rows={4}
-                    className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-xs text-slate-200 focus:outline-none focus:border-violet-500"
+                    className="w-full bg-brand-surface border border-[#3B3E47] rounded-xl p-2.5 text-xs text-slate-200 focus:outline-none focus:border-[#FD7014]"
                   />
                 </div>
               </div>
@@ -141,7 +141,7 @@ export function MaximizedSceneModal({
           </div>
 
           {/* === CONEXIONES / BRANCHING NARRATIVES === */}
-          <div className="p-4 bg-slate-900/80 border border-slate-800 rounded-xl">
+          <div className="p-4 bg-brand-surface/80 border border-[#3B3E47] rounded-xl">
             <h4 className="text-xs font-bold uppercase text-slate-400 mb-3 flex items-center gap-2">
               <span>🔗</span> Escenas Siguientes (Conexiones)
             </h4>
@@ -161,7 +161,7 @@ export function MaximizedSceneModal({
                   return (
                     <div
                       key={conn.id}
-                      className="flex items-center justify-between bg-slate-950/60 px-3 py-2 rounded-lg border border-slate-800 text-xs group hover:border-slate-700 transition"
+                      className="flex items-center justify-between bg-brand-bg/60 px-3 py-2 rounded-lg border border-[#3B3E47] text-xs group hover:border-slate-700 transition"
                     >
                       <span className="text-slate-200 flex items-center gap-1.5">
                         {conn.label ? (
@@ -199,7 +199,7 @@ export function MaximizedSceneModal({
                 <select
                   value={newConnTarget}
                   onChange={(e) => setNewConnTarget(e.target.value)}
-                  className="w-full bg-slate-950 text-slate-200 text-xs border border-slate-700 rounded-lg px-2 py-1.5 focus:outline-none focus:border-violet-500"
+                  className="w-full bg-brand-bg text-slate-200 text-xs border border-slate-700 rounded-lg px-2 py-1.5 focus:outline-none focus:border-[#FD7014]"
                 >
                   <option value="">— Seleccionar escena —</option>
                   {availableTargets.map((s) => {
@@ -221,7 +221,7 @@ export function MaximizedSceneModal({
                   value={newConnLabel}
                   onChange={(e) => setNewConnLabel(e.target.value)}
                   placeholder='Ej: "Abrir la puerta de madera"'
-                  className="w-full bg-slate-950 text-slate-200 text-xs border border-slate-700 rounded-lg px-2 py-1.5 focus:outline-none focus:border-violet-500"
+                  className="w-full bg-brand-bg text-slate-200 text-xs border border-slate-700 rounded-lg px-2 py-1.5 focus:outline-none focus:border-[#FD7014]"
                 />
               </div>
               <button
@@ -236,7 +236,7 @@ export function MaximizedSceneModal({
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 bg-slate-950 border-t border-slate-800 flex items-center justify-end gap-3">
+        <div className="px-6 py-4 bg-brand-bg border-t border-[#3B3E47] flex items-center justify-end gap-3">
           <button
             onClick={onClose}
             className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-xl border border-slate-700"

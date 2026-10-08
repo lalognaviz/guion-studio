@@ -6,7 +6,16 @@ export default {
   ],
   darkMode: 'class',
   theme: {
-    extend: {},
+    extend: {
+      colors: {
+        brand: {
+          bg: '#212832',
+          surface: '#3B3E47',
+          accent: '#FD7014',
+          text: '#EDEDED',
+        },
+      },
+    },
   },
   plugins: [],
 }

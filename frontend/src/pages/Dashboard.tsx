@@ -137,14 +137,14 @@ export function Dashboard() {
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
-      className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-violet-500/30 selection:text-violet-200 relative"
+      className="min-h-screen bg-brand-bg text-brand-text flex flex-col font-sans selection:bg-violet-500/30 selection:text-violet-200 relative"
     >
       {/* Visual Overlay for Drag and Drop */}
       {isDragOver && (
-        <div className="fixed inset-0 bg-violet-600/10 border-4 border-dashed border-violet-500/60 z-50 flex items-center justify-center backdrop-blur-sm pointer-events-none">
-          <div className="bg-slate-900/95 px-8 py-6 rounded-2xl text-center border border-violet-500/40 shadow-2xl space-y-2">
+        <div className="fixed inset-0 bg-[#FD7014]/10 border-4 border-dashed border-[#FD7014]/60 z-50 flex items-center justify-center backdrop-blur-sm pointer-events-none">
+          <div className="bg-brand-surface/95 px-8 py-6 rounded-2xl text-center border border-[#FD7014]/40 shadow-2xl space-y-2">
             <span className="text-5xl">📂</span>
-            <p className="text-violet-300 font-bold text-base">Soltar archivo para abrir proyecto</p>
+            <p className="text-brand-text/90 font-bold text-base">Soltar archivo para abrir proyecto</p>
             <p className="text-slate-400 text-xs">Acepta archivos de guion .json o .guion</p>
           </div>
         </div>
@@ -152,20 +152,20 @@ export function Dashboard() {
 
       {/* Toast notification */}
       {notificacion && (
-        <div className="fixed bottom-5 right-5 z-50 bg-slate-900 border border-violet-500/50 text-slate-100 text-xs font-semibold px-4 py-3 rounded-xl shadow-2xl flex items-center gap-2 animate-bounce">
-          <span className="text-violet-400">✨</span>
+        <div className="fixed bottom-5 right-5 z-50 bg-brand-surface border border-[#FD7014]/50 text-brand-text text-xs font-semibold px-4 py-3 rounded-xl shadow-2xl flex items-center gap-2 animate-bounce">
+          <span className="text-[#FD7014]">✨</span>
           <span>{notificacion}</span>
         </div>
       )}
 
       {/* Unified Dismiss/Delete Options Modal */}
       {projectToDismiss && (
-        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+        <div className="fixed inset-0 bg-brand-bg/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+          <div className="bg-brand-surface border border-brand-surface rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
             <div className="flex items-center gap-3">
-              <div className="p-3 bg-slate-800 border border-slate-700 rounded-xl text-xl">📋</div>
+              <div className="p-3 bg-slate-800 border border-[#FD7014]/30 rounded-xl text-xl">📋</div>
               <div>
-                <h3 className="text-lg font-bold text-slate-100">{projectToDismiss.titulo}</h3>
+                <h3 className="text-lg font-bold text-brand-text">{projectToDismiss.titulo}</h3>
                 <p className="text-xs text-slate-400">¿Qué deseas hacer con este proyecto?</p>
               </div>
             </div>
@@ -176,11 +176,11 @@ export function Dashboard() {
                   handleHideProject(projectToDismiss);
                   setProjectToDismiss(null);
                 }}
-                className="w-full text-left px-4 py-3 bg-slate-800/80 hover:bg-slate-800 rounded-xl border border-slate-700/50 transition flex items-center gap-3 group"
+                className="w-full text-left px-4 py-3 bg-slate-800/80 hover:bg-slate-800 rounded-xl border border-[#FD7014]/30/50 transition flex items-center gap-3 group"
               >
                 <span className="text-lg">👁️</span>
                 <div>
-                  <p className="text-sm font-semibold text-slate-200 group-hover:text-violet-300 transition">Quitar de la vista</p>
+                  <p className="text-sm font-semibold text-slate-200 group-hover:text-brand-text/90 transition">Quitar de la vista</p>
                   <p className="text-xs text-slate-400">El proyecto se oculta de la pantalla de inicio sin borrar datos.</p>
                 </div>
               </button>
@@ -203,7 +203,7 @@ export function Dashboard() {
             <div className="flex justify-end pt-1">
               <button
                 onClick={() => setProjectToDismiss(null)}
-                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-xl border border-slate-700 transition"
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-xl border border-[#FD7014]/30 transition"
               >
                 Cancelar
               </button>
@@ -213,9 +213,9 @@ export function Dashboard() {
       )}
 
       {/* Top Navbar */}
-      <header className="bg-slate-900/90 backdrop-blur-md border-b border-slate-800 px-6 py-4 flex items-center justify-between shadow-xl sticky top-0 z-40">
+      <header className="bg-brand-surface/90 backdrop-blur-md border-b border-brand-surface px-6 py-4 flex items-center justify-between shadow-xl sticky top-0 z-40">
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-gradient-to-tr from-violet-600 to-indigo-500 rounded-xl shadow-lg shadow-violet-950/40">
+          <div className="p-2 bg-gradient-to-tr from-[#FD7014] to-[#e65f0f] rounded-xl shadow-lg shadow-orange-950/40">
             <span className="text-xl">✍️</span>
           </div>
           <div>
@@ -227,7 +227,7 @@ export function Dashboard() {
         <div className="flex items-center gap-3">
           <button
             onClick={() => fileInputRef.current?.click()}
-            className="bg-slate-800/90 hover:bg-slate-700 text-slate-200 text-xs font-semibold px-4 py-2.5 rounded-xl border border-slate-700/80 transition flex items-center gap-2"
+            className="bg-slate-800/90 hover:bg-slate-700 text-slate-200 text-xs font-semibold px-4 py-2.5 rounded-xl border border-[#FD7014]/30/80 transition flex items-center gap-2"
           >
             <span>📂</span> Abrir Proyecto...
           </button>
@@ -243,7 +243,7 @@ export function Dashboard() {
           />
           <button
             onClick={handleCreateNewProject}
-            className="bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-lg shadow-indigo-950/50 transition-all duration-200 flex items-center gap-2"
+            className="bg-gradient-to-r from-[#FD7014] to-[#e65f0f] hover:from-[#f57f2b] hover:to-[#e65f0f] text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-lg shadow-orange-950/50 transition-all duration-200 flex items-center gap-2"
           >
             <span>+</span> Nuevo Guion
           </button>
@@ -252,15 +252,15 @@ export function Dashboard() {
 
       {/* Main Content */}
       <main className="flex-1 max-w-6xl w-full mx-auto p-8">
-        <div className="mb-8 flex items-center justify-between border-b border-slate-800/80 pb-4">
+        <div className="mb-8 flex items-center justify-between border-b border-brand-surface/80 pb-4">
           <div>
-            <h2 className="text-2xl font-black text-slate-100 tracking-tight">Proyectos Recientes</h2>
+            <h2 className="text-2xl font-black text-brand-text tracking-tight">Proyectos Recientes</h2>
             <p className="text-xs text-slate-400 mt-1">Accede a tus proyectos narrativos o arrastra un archivo .json para abrirlo.</p>
           </div>
         </div>
 
         {loading ? (
-          <div className="flex items-center justify-center p-16 bg-slate-900/60 backdrop-blur-sm rounded-2xl border border-slate-800/80 shadow-2xl">
+          <div className="flex items-center justify-center p-16 bg-brand-surface/60 backdrop-blur-sm rounded-2xl border border-brand-surface/80 shadow-2xl">
             <div className="flex items-center gap-3 text-indigo-400 font-medium">
               <span className="animate-spin text-2xl">⏳</span>
               <span className="text-sm">Cargando proyectos...</span>
@@ -271,8 +271,8 @@ export function Dashboard() {
             {error}
           </div>
         ) : proyectos.length === 0 ? (
-          <div className="flex flex-col items-center justify-center p-16 bg-slate-900/40 rounded-2xl border border-dashed border-slate-700/80 text-center space-y-6">
-            <div className="p-4 bg-gradient-to-tr from-violet-600/20 to-indigo-500/20 rounded-2xl border border-violet-500/20">
+          <div className="flex flex-col items-center justify-center p-16 bg-brand-surface/40 rounded-2xl border border-dashed border-[#FD7014]/30/80 text-center space-y-6">
+            <div className="p-4 bg-gradient-to-tr from-[#FD7014]/20 to-[#e65f0f]/20 rounded-2xl border border-[#FD7014]/20">
               <span className="text-5xl">✍️</span>
             </div>
             <div>
@@ -284,13 +284,13 @@ export function Dashboard() {
             <div className="flex items-center gap-3">
               <button
                 onClick={handleCreateNewProject}
-                className="bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white text-xs font-bold px-5 py-2.5 rounded-xl shadow-lg transition flex items-center gap-2"
+                className="bg-gradient-to-r from-[#FD7014] to-[#e65f0f] hover:from-[#f57f2b] hover:to-[#e65f0f] text-white text-xs font-bold px-5 py-2.5 rounded-xl shadow-lg transition flex items-center gap-2"
               >
                 <span>+</span> Nuevo Proyecto
               </button>
               <button
                 onClick={handleCreateExampleProject}
-                className="bg-slate-800/90 hover:bg-slate-700 text-slate-200 text-xs font-semibold px-5 py-2.5 rounded-xl border border-slate-700/80 transition flex items-center gap-2"
+                className="bg-slate-800/90 hover:bg-slate-700 text-slate-200 text-xs font-semibold px-5 py-2.5 rounded-xl border border-[#FD7014]/30/80 transition flex items-center gap-2"
               >
                 <span>📘</span> Crear Proyecto de Ejemplo
               </button>
@@ -301,12 +301,12 @@ export function Dashboard() {
             {proyectos.map((p) => (
               <div
                 key={p.id}
-                className="bg-slate-900/80 backdrop-blur-sm border border-slate-800 hover:border-violet-500/40 rounded-2xl p-6 shadow-xl hover:shadow-2xl hover:shadow-violet-950/20 transition-all duration-300 flex flex-col justify-between group relative"
+                className="bg-brand-surface/80 backdrop-blur-sm border border-brand-surface hover:border-[#FD7014]/40 rounded-2xl p-6 shadow-xl hover:shadow-2xl hover:shadow-orange-950/20 transition-all duration-300 flex flex-col justify-between group relative"
               >
                 <div>
                   <div className="flex items-start justify-between mb-4">
                     <h3
-                      className="text-lg font-bold text-slate-100 group-hover:text-violet-300 transition cursor-pointer pr-6"
+                      className="text-lg font-bold text-brand-text group-hover:text-brand-text/90 transition cursor-pointer pr-6"
                       onClick={() => navigate(`/tablero/${p.id}`)}
                     >
                       {p.titulo}
@@ -334,10 +334,10 @@ export function Dashboard() {
                     <span>📅</span> Creado: {p.creado_en}
                   </p>
                 </div>
-                <div className="pt-4 border-t border-slate-800/80">
+                <div className="pt-4 border-t border-brand-surface/80">
                   <button
                     onClick={() => navigate(`/tablero/${p.id}`)}
-                    className="w-full bg-slate-800/90 hover:bg-gradient-to-r hover:from-violet-600 hover:to-indigo-600 text-slate-200 hover:text-white text-xs font-bold py-2.5 px-4 rounded-xl border border-slate-700/80 hover:border-transparent transition-all duration-200 text-center shadow-sm"
+                    className="w-full bg-slate-800/90 hover:bg-gradient-to-r hover:from-[#FD7014] hover:to-[#e65f0f] text-slate-200 hover:text-white text-xs font-bold py-2.5 px-4 rounded-xl border border-[#FD7014]/30/80 hover:border-transparent transition-all duration-200 text-center shadow-sm"
                   >
                     Abrir
                   </button>

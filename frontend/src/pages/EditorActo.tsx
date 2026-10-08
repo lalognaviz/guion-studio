@@ -173,9 +173,9 @@ export function EditorActo() {
     .sort((a, b) => a.orden - b.orden);
 
   return (
-    <div className={`min-h-screen ${theme === 'dark' ? 'bg-slate-950 text-slate-100' : 'bg-slate-100 text-slate-800'} flex flex-col font-sans transition-colors duration-200 selection:bg-violet-500/30 selection:text-violet-200`}>
+    <div className={`min-h-screen ${theme === 'dark' ? 'bg-brand-bg text-brand-text' : 'bg-brand-bg text-brand-text'} flex flex-col font-sans transition-colors duration-200 selection:bg-[#FD7014]/30 selection:text-brand-text`}>
       {/* Top Navbar */}
-      <header className="bg-slate-900/90 backdrop-blur-md text-white px-6 py-3.5 flex items-center justify-between border-b border-slate-800 shadow-xl sticky top-0 z-40">
+      <header className="bg-brand-surface/90 backdrop-blur-md text-white px-6 py-3.5 flex items-center justify-between border-b border-[#3B3E47] shadow-xl sticky top-0 z-40">
         <div className="flex items-center gap-4">
           <button
             onClick={() => navigate(`/tablero/${id || '1'}`)}
@@ -188,7 +188,7 @@ export function EditorActo() {
           <span className="text-slate-700">|</span>
 
           <div className="flex items-center gap-2">
-            <h1 className="text-base font-bold text-slate-100">Editor Dedicado: Acto {currentAct.orden} - {currentAct.nombre}</h1>
+            <h1 className="text-base font-bold text-brand-text">Editor Dedicado: Acto {currentAct.orden} - {currentAct.nombre}</h1>
           </div>
         </div>
 
@@ -229,7 +229,7 @@ export function EditorActo() {
       {/* Main Content */}
       <main className="flex-1 max-w-5xl w-full mx-auto p-8 space-y-6">
         {/* Act Header & Meta Edit Card */}
-        <div className="bg-slate-900/80 backdrop-blur-sm border border-slate-800/80 rounded-2xl p-6 shadow-2xl space-y-5">
+        <div className="bg-brand-surface/80 backdrop-blur-sm border border-[#3B3E47]/80 rounded-2xl p-6 shadow-2xl space-y-5">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             <div>
               <label className="block text-xs font-bold uppercase text-slate-400 mb-1.5">
@@ -239,7 +239,7 @@ export function EditorActo() {
                 type="text"
                 value={currentAct.nombre}
                 onChange={(e) => updateCurrentAct({ nombre: e.target.value })}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-slate-100 focus:outline-none focus:border-violet-500 font-semibold"
+                className="w-full bg-brand-bg border border-[#3B3E47] rounded-xl p-3 text-sm text-brand-text focus:outline-none focus:border-[#FD7014] font-semibold"
               />
             </div>
 
@@ -251,7 +251,7 @@ export function EditorActo() {
                 type="text"
                 value={currentAct.plot_point}
                 onChange={(e) => updateCurrentAct({ plot_point: e.target.value })}
-                className="w-full bg-slate-950 border border-amber-900/50 rounded-xl p-3 text-sm text-amber-200 focus:outline-none focus:border-amber-500"
+                className="w-full bg-brand-bg border border-amber-900/50 rounded-xl p-3 text-sm text-amber-200 focus:outline-none focus:border-amber-500"
               />
             </div>
           </div>
@@ -264,16 +264,16 @@ export function EditorActo() {
               value={currentAct.sinopsis || ''}
               onChange={(e) => updateCurrentAct({ sinopsis: e.target.value })}
               rows={2}
-              className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-slate-200 focus:outline-none focus:border-violet-500 leading-relaxed"
+              className="w-full bg-brand-bg border border-[#3B3E47] rounded-xl p-3 text-xs text-slate-200 focus:outline-none focus:border-[#FD7014] leading-relaxed"
               placeholder="Escribe la sinopsis del acto..."
             />
           </div>
         </div>
 
         {/* Scenes List Section */}
-        <div className="bg-slate-900/80 backdrop-blur-sm border border-slate-800/80 rounded-2xl p-6 shadow-2xl space-y-5">
+        <div className="bg-brand-surface/80 backdrop-blur-sm border border-[#3B3E47]/80 rounded-2xl p-6 shadow-2xl space-y-5">
           <div className="flex items-center justify-between">
-            <h3 className="text-xl font-bold text-slate-100 flex items-center gap-2">
+            <h3 className="text-xl font-bold text-brand-text flex items-center gap-2">
               Escenas:
             </h3>
             <button
@@ -285,7 +285,7 @@ export function EditorActo() {
           </div>
 
           {actScenes.length === 0 ? (
-            <div className="p-10 text-center bg-slate-950/40 rounded-2xl border border-slate-800/80 text-slate-400 text-sm">
+            <div className="p-10 text-center bg-brand-bg/40 rounded-2xl border border-[#3B3E47]/80 text-slate-400 text-sm">
               No hay escenas creadas en este acto. ¡Haz clic en "+ Nueva Escena" para comenzar!
             </div>
           ) : (
@@ -296,19 +296,19 @@ export function EditorActo() {
                 return (
                   <div
                     key={scene.id}
-                    className="bg-slate-950/80 border border-slate-800 hover:border-slate-700 rounded-2xl p-5 shadow-lg transition space-y-4"
+                    className="bg-brand-bg/80 border border-[#3B3E47] hover:border-slate-700 rounded-2xl p-5 shadow-lg transition space-y-4"
                   >
                     {/* Scene Item Bar */}
                     <div className="flex flex-wrap sm:flex-nowrap items-center justify-between gap-3">
                       <div className="flex items-center gap-3 flex-1 min-w-0">
-                        <span className="text-xs font-mono font-bold text-slate-400 bg-slate-900 px-2.5 py-1 rounded-lg border border-slate-800">
+                        <span className="text-xs font-mono font-bold text-slate-400 bg-brand-surface px-2.5 py-1 rounded-lg border border-[#3B3E47]">
                           #{scene.orden}
                         </span>
                         <input
                           type="text"
                           value={scene.titulo}
                           onChange={(e) => handleUpdateScene({ ...scene, titulo: e.target.value })}
-                          className="bg-transparent text-base font-bold text-slate-100 focus:outline-none focus:bg-slate-900 px-2 py-1 rounded-lg truncate flex-1 min-w-0 border border-transparent focus:border-slate-800"
+                          className="bg-transparent text-base font-bold text-brand-text focus:outline-none focus:bg-brand-surface px-2 py-1 rounded-lg truncate flex-1 min-w-0 border border-transparent focus:border-[#3B3E47]"
                         />
                       </div>
 
@@ -327,7 +327,7 @@ export function EditorActo() {
                               ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30'
                               : scene.estado === 'Revisado'
                               ? 'bg-amber-500/10 text-amber-300 border-amber-500/30'
-                              : 'bg-slate-900 text-slate-400 border-slate-800'
+                              : 'bg-brand-surface text-slate-400 border-[#3B3E47]'
                           }`}
                         >
                           <option value="Borrador">Borrador</option>
@@ -338,14 +338,14 @@ export function EditorActo() {
                         {/* Reorder Buttons */}
                         <button
                           onClick={() => handleMoveScene(scene.id, 'up')}
-                          className="text-slate-400 hover:text-slate-200 text-xs px-2 py-1 bg-slate-900 rounded-lg border border-slate-800"
+                          className="text-slate-400 hover:text-slate-200 text-xs px-2 py-1 bg-brand-surface rounded-lg border border-[#3B3E47]"
                           title="Mover arriba"
                         >
                           ▲
                         </button>
                         <button
                           onClick={() => handleMoveScene(scene.id, 'down')}
-                          className="text-slate-400 hover:text-slate-200 text-xs px-2 py-1 bg-slate-900 rounded-lg border border-slate-800"
+                          className="text-slate-400 hover:text-slate-200 text-xs px-2 py-1 bg-brand-surface rounded-lg border border-[#3B3E47]"
                           title="Mover abajo"
                         >
                           ▼
@@ -357,7 +357,7 @@ export function EditorActo() {
                           className={`text-xs px-3 py-1.5 rounded-xl border font-bold transition flex items-center gap-1.5 ${
                             isExpanded
                               ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white border-transparent shadow-md'
-                              : 'bg-slate-900 text-slate-300 hover:text-white border-slate-800'
+                              : 'bg-brand-surface text-slate-300 hover:text-white border-[#3B3E47]'
                           }`}
                         >
                           <span>{isExpanded ? '➖' : '➕'}</span>
@@ -395,7 +395,7 @@ export function EditorActo() {
                             value={scene.descripcion}
                             onChange={(e) => handleUpdateScene({ ...scene, descripcion: e.target.value })}
                             rows={2}
-                            className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-slate-200 focus:outline-none focus:border-violet-500"
+                            className="w-full bg-brand-surface border border-[#3B3E47] rounded-xl p-3 text-slate-200 focus:outline-none focus:border-[#FD7014]"
                             placeholder="Resumen argumental de la escena..."
                           />
                         </div>
@@ -408,7 +408,7 @@ export function EditorActo() {
                             value={scene.escaleta}
                             onChange={(e) => handleUpdateScene({ ...scene, escaleta: e.target.value })}
                             rows={3}
-                            className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-slate-200 font-mono text-[11px] focus:outline-none focus:border-violet-500"
+                            className="w-full bg-brand-surface border border-[#3B3E47] rounded-xl p-3 text-slate-200 font-mono text-[11px] focus:outline-none focus:border-[#FD7014]"
                             placeholder="1. Evento 1&#10;2. Evento 2..."
                           />
                         </div>
@@ -421,14 +421,14 @@ export function EditorActo() {
                             value={scene.dialogos || ''}
                             onChange={(e) => handleUpdateScene({ ...scene, dialogos: e.target.value })}
                             rows={3}
-                            className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-slate-200 font-mono text-[11px] focus:outline-none focus:border-violet-500"
+                            className="w-full bg-brand-surface border border-[#3B3E47] rounded-xl p-3 text-slate-200 font-mono text-[11px] focus:outline-none focus:border-[#FD7014]"
                             placeholder="PERSONAJE&#10;(Emoción)&#10;Diálogo..."
                           />
                         </div>
                       </div>
                     )}
                     {(scene.conexiones || []).length > 0 && (
-                      <div className="flex items-center gap-1 text-[10px] text-violet-400 font-semibold bg-violet-950/40 border border-violet-800/40 px-2.5 py-1 rounded-lg w-fit mt-2">
+                      <div className="flex items-center gap-1 text-[10px] text-[#FD7014] font-semibold bg-violet-950/40 border border-violet-800/40 px-2.5 py-1 rounded-lg w-fit mt-2">
                         <span>🔗</span>
                         <span>{(scene.conexiones || []).length} conexión{(scene.conexiones || []).length > 1 ? 'es' : ''}</span>
                       </div>

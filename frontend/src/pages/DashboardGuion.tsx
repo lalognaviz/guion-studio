@@ -248,7 +248,7 @@ export function DashboardGuion() {
         parts.push(remaining.slice(lastIndex, match.index));
       }
       if (match[2]) {
-        parts.push(<strong key={keyIdx++} className="font-bold text-slate-100">{match[2]}</strong>);
+        parts.push(<strong key={keyIdx++} className="font-bold text-brand-text">{match[2]}</strong>);
       } else if (match[3]) {
         parts.push(<em key={keyIdx++} className="italic text-slate-400">{match[3]}</em>);
       } else if (match[4]) {
@@ -268,13 +268,13 @@ export function DashboardGuion() {
       if (line.startsWith('### '))
         return <h3 key={i} className="text-sm font-bold text-indigo-300 mt-4 mb-1">{applyInlineStyles(line.slice(4))}</h3>;
       if (line.startsWith('## '))
-        return <h2 key={i} className="text-base font-bold text-violet-300 mt-5 mb-1.5 border-b border-slate-800 pb-1">{applyInlineStyles(line.slice(3))}</h2>;
+        return <h2 key={i} className="text-base font-bold text-violet-300 mt-5 mb-1.5 border-b border-[#3B3E47] pb-1">{applyInlineStyles(line.slice(3))}</h2>;
       if (line.startsWith('# '))
         return <h1 key={i} className="text-xl font-black text-white mt-2 mb-2">{applyInlineStyles(line.slice(2))}</h1>;
       if (line.startsWith('> '))
         return <blockquote key={i} className="border-l-2 border-amber-500/60 pl-3 text-xs text-amber-200/80 italic my-1">{applyInlineStyles(line.slice(2))}</blockquote>;
       if (line.trim() === '---')
-        return <hr key={i} className="border-slate-800 my-3" />;
+        return <hr key={i} className="border-[#3B3E47] my-3" />;
       if (line.trim().startsWith('```'))
         return null;
       if (line.trim() === '')
@@ -288,7 +288,7 @@ export function DashboardGuion() {
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
-      .replace(/"([^"]+)"(?=\s*:)/g, '<span class="text-violet-400">"$1"</span>')
+      .replace(/"([^"]+)"(?=\s*:)/g, '<span class="text-[#FD7014]">"$1"</span>')
       .replace(/:\s*"([^"]*)"/g, ': <span class="text-emerald-400">"$1"</span>')
       .replace(/:\s*(\d+)/g, ': <span class="text-amber-400">$1</span>')
       .replace(/:\s*(true|false|null)/g, ': <span class="text-rose-400">$1</span>');
@@ -557,9 +557,9 @@ export function DashboardGuion() {
   };
 
   return (
-    <div className={`min-h-screen ${theme === 'dark' ? 'bg-slate-950 text-slate-100' : 'bg-slate-100 text-slate-800'} flex flex-col font-sans transition-colors duration-200 selection:bg-violet-500/30 selection:text-violet-200`}>
+    <div className={`min-h-screen ${theme === 'dark' ? 'bg-brand-bg text-brand-text' : 'bg-brand-bg text-brand-text'} flex flex-col font-sans transition-colors duration-200 selection:bg-[#FD7014]/30 selection:text-brand-text`}>
       {/* Top Bar Header */}
-      <header className="bg-slate-900/90 backdrop-blur-md text-white px-6 py-3.5 flex items-center justify-between border-b border-slate-800 shadow-xl sticky top-0 z-40">
+      <header className="bg-brand-surface/90 backdrop-blur-md text-white px-6 py-3.5 flex items-center justify-between border-b border-[#3B3E47] shadow-xl sticky top-0 z-40">
         <div className="flex items-center gap-4">
           <button
             onClick={() => navigate('/')}
@@ -584,7 +584,7 @@ export function DashboardGuion() {
             </button>
 
             {isFileMenuOpen && (
-              <div className="absolute left-0 mt-2 w-56 bg-slate-900 border border-slate-800 rounded-xl shadow-2xl py-1.5 z-50 backdrop-blur-md">
+              <div className="absolute left-0 mt-2 w-56 bg-brand-surface border border-[#3B3E47] rounded-xl shadow-2xl py-1.5 z-50 backdrop-blur-md">
                 <button
                   onClick={handleNewProject}
                   className="w-full text-left px-4 py-2 text-xs text-slate-200 hover:bg-slate-800 hover:text-violet-300 flex items-center gap-2"
@@ -604,7 +604,7 @@ export function DashboardGuion() {
                   accept=".json,.guion"
                   className="hidden"
                 />
-                <hr className="border-slate-800 my-1" />
+                <hr className="border-[#3B3E47] my-1" />
                 <button
                   onClick={handleSaveJson}
                   className="w-full text-left px-4 py-2 text-xs text-slate-200 hover:bg-slate-800 hover:text-violet-300 flex items-center gap-2"
@@ -636,14 +636,14 @@ export function DashboardGuion() {
                 >
                   🎮 Exportar a Twine (.twee)
                 </button>
-                <hr className="border-slate-800 my-1" />
+                <hr className="border-[#3B3E47] my-1" />
                 <button
                   onClick={() => {
                     setPreviewTab('formatted');
                     setIsMdReaderOpen(true);
                     setIsFileMenuOpen(false);
                   }}
-                  className="w-full text-left px-4 py-2 text-xs text-violet-400 hover:bg-slate-800 font-medium flex items-center gap-2"
+                  className="w-full text-left px-4 py-2 text-xs text-[#FD7014] hover:bg-slate-800 font-medium flex items-center gap-2"
                 >
                   vista previa
                 </button>
@@ -665,7 +665,7 @@ export function DashboardGuion() {
 
       {/* Notification Toast */}
       {notification && (
-        <div className="fixed bottom-6 right-6 bg-gradient-to-r from-violet-600 to-indigo-600 text-white px-5 py-2.5 rounded-xl shadow-2xl text-xs font-bold z-50 animate-bounce">
+        <div className="fixed bottom-6 right-6 bg-gradient-to-r from-[#FD7014] to-[#e65f0f] text-white px-5 py-2.5 rounded-xl shadow-2xl text-xs font-bold z-50 animate-bounce">
           {notification}
         </div>
       )}
@@ -674,10 +674,10 @@ export function DashboardGuion() {
       <main className="flex-1 p-6 overflow-y-auto max-w-7xl mx-auto w-full space-y-6">
           
           {/* UNIFIED PROJECT DETAILS CARD (EDITABLE) */}
-          <div className="bg-slate-900/80 backdrop-blur-sm border border-slate-800/80 rounded-2xl p-6 shadow-2xl space-y-4">
-            <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800 pb-4">
+          <div className="bg-brand-surface/80 backdrop-blur-sm border border-[#3B3E47]/80 rounded-2xl p-6 shadow-2xl space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[#3B3E47] pb-4">
               <div className="flex items-center gap-3 flex-1 min-w-0">
-                <span className="text-[11px] font-black tracking-wider text-violet-300 bg-violet-950/60 border border-violet-800/60 px-3 py-1.5 rounded-lg uppercase shrink-0">
+                <span className="text-[11px] font-black tracking-wider text-violet-300 bg-[#FD7014]/10/60 border border-violet-800/60 px-3 py-1.5 rounded-lg uppercase shrink-0">
                   Proyecto Activo
                 </span>
                 <input
@@ -688,7 +688,7 @@ export function DashboardGuion() {
                     setProjectTitle(val);
                     saveState(val, projectSynopsis, acts, scenes);
                   }}
-                  className="text-2xl md:text-3xl font-black text-slate-100 bg-slate-950/80 border border-slate-800 focus:border-violet-500 rounded-xl px-3.5 py-1.5 w-full transition focus:outline-none tracking-tight"
+                  className="text-2xl md:text-3xl font-black text-brand-text bg-brand-bg/80 border border-[#3B3E47] focus:border-[#FD7014] rounded-xl px-3.5 py-1.5 w-full transition focus:outline-none tracking-tight"
                   placeholder="Nombre del proyecto..."
                   title="Haz clic para editar el nombre del proyecto"
                 />
@@ -707,7 +707,7 @@ export function DashboardGuion() {
                   saveState(projectTitle, val, acts, scenes);
                 }}
                 rows={2}
-                className="w-full bg-slate-950/80 border border-slate-800/80 rounded-xl p-3 text-xs text-slate-200 focus:outline-none focus:border-violet-500 leading-relaxed transition font-sans"
+                className="w-full bg-brand-bg/80 border border-[#3B3E47]/80 rounded-xl p-3 text-xs text-slate-200 focus:outline-none focus:border-[#FD7014] leading-relaxed transition font-sans"
                 placeholder="Escribe la sinopsis argumental del proyecto..."
                 title="Haz clic para editar la sinopsis del proyecto"
               />
@@ -731,7 +731,7 @@ export function DashboardGuion() {
               return (
                 <div
                   key={act.id}
-                  className="bg-slate-900/80 backdrop-blur-sm border border-slate-800/90 hover:border-slate-700 rounded-2xl p-5 flex flex-col justify-between shadow-2xl transition-all duration-200 min-w-0"
+                  className="bg-brand-surface/80 backdrop-blur-sm border border-[#3B3E47]/90 hover:border-slate-700 rounded-2xl p-5 flex flex-col justify-between shadow-2xl transition-all duration-200 min-w-0"
                 >
                   {/* Act Header */}
                   <div className="space-y-4">
@@ -750,7 +750,7 @@ export function DashboardGuion() {
                       <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
                         Descripción:
                       </span>
-                      <p className="text-xs text-slate-300 bg-slate-950/60 p-3 rounded-xl border border-slate-800/80 leading-relaxed italic">
+                      <p className="text-xs text-slate-300 bg-brand-bg/60 p-3 rounded-xl border border-[#3B3E47]/80 leading-relaxed italic">
                         {act.sinopsis || 'Sin sinopsis registrada.'}
                       </p>
                     </div>
@@ -773,7 +773,7 @@ export function DashboardGuion() {
                         </span>
                         <button
                           onClick={() => handleAddScene(act.id)}
-                          className="bg-violet-600/20 hover:bg-violet-600/30 text-violet-300 border border-violet-500/40 hover:border-violet-500 text-[11px] font-bold px-2.5 py-1 rounded-lg transition"
+                          className="bg-[#FD7014]/20 hover:bg-[#FD7014]/30 text-violet-300 border border-[#FD7014]/40 hover:border-[#FD7014] text-[11px] font-bold px-2.5 py-1 rounded-lg transition"
                         >
                           + Nueva Escena
                         </button>
@@ -781,7 +781,7 @@ export function DashboardGuion() {
 
                       <div className="max-h-72 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
                         {actScenes.length === 0 ? (
-                          <div className="text-xs text-slate-500 italic p-4 text-center bg-slate-950/40 rounded-xl border border-slate-800/50">
+                          <div className="text-xs text-slate-500 italic p-4 text-center bg-brand-bg/40 rounded-xl border border-[#3B3E47]/50">
                             No hay escenas en este acto. ¡Haz clic en "+ Nueva Escena" para añadir una!
                           </div>
                         ) : (
@@ -791,7 +791,7 @@ export function DashboardGuion() {
                             return (
                               <div
                                 key={scene.id}
-                                className="bg-slate-950/80 border border-slate-800 hover:border-slate-700 rounded-xl p-3 space-y-2 transition min-w-0"
+                                className="bg-brand-bg/80 border border-[#3B3E47] hover:border-slate-700 rounded-xl p-3 space-y-2 transition min-w-0"
                               >
                                 <div className="flex items-center justify-between gap-2">
                                   <div className="flex items-center gap-1.5 flex-1 min-w-0">
@@ -802,7 +802,7 @@ export function DashboardGuion() {
                                       type="text"
                                       value={scene.titulo}
                                       onChange={(e) => handleUpdateScene({ ...scene, titulo: e.target.value })}
-                                      className="bg-transparent text-slate-100 font-semibold text-xs focus:outline-none focus:bg-slate-900 px-1.5 py-0.5 rounded truncate flex-1 min-w-0 border border-transparent focus:border-slate-700"
+                                      className="bg-transparent text-brand-text font-semibold text-xs focus:outline-none focus:bg-brand-surface px-1.5 py-0.5 rounded truncate flex-1 min-w-0 border border-transparent focus:border-slate-700"
                                     />
                                   </div>
 
@@ -850,7 +850,7 @@ export function DashboardGuion() {
                                       onClick={() => setExpandedSceneId(isExpanded ? null : scene.id)}
                                       className={`px-2 py-0.5 rounded-lg text-[10px] font-bold transition flex items-center gap-1 border ${
                                         isExpanded
-                                          ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white border-transparent shadow-md'
+                                          ? 'bg-gradient-to-r from-[#FD7014] to-[#e65f0f] text-white border-transparent shadow-md'
                                           : 'bg-slate-800/90 text-slate-300 hover:text-white hover:bg-slate-700/80 border-slate-700/80'
                                       }`}
                                       title={isExpanded ? 'Contraer escena' : 'Desplegar detalles de escena'}
@@ -861,7 +861,7 @@ export function DashboardGuion() {
                                     {/* Maximize */}
                                     <button
                                       onClick={() => setMaximizedScene(scene)}
-                                      className="text-slate-400 hover:text-violet-400 text-xs px-1"
+                                      className="text-slate-400 hover:text-[#FD7014] text-xs px-1"
                                       title="Maximizar escena para edición completa"
                                     >
                                       ⛶
@@ -880,7 +880,7 @@ export function DashboardGuion() {
 
                                 {/* Inline Expanded Form */}
                                 {isExpanded && (
-                                  <div className="pt-2 border-t border-slate-800 space-y-2 text-[11px]">
+                                  <div className="pt-2 border-t border-[#3B3E47] space-y-2 text-[11px]">
                                     <div>
                                       <label className="block text-[9px] uppercase font-bold text-slate-400 mb-0.5">
                                         Descripción / Sinopsis:
@@ -889,7 +889,7 @@ export function DashboardGuion() {
                                         value={scene.descripcion}
                                         onChange={(e) => handleUpdateScene({ ...scene, descripcion: e.target.value })}
                                         rows={2}
-                                        className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-slate-200 focus:outline-none focus:border-violet-500"
+                                        className="w-full bg-brand-surface border border-[#3B3E47] rounded-lg p-2 text-slate-200 focus:outline-none focus:border-[#FD7014]"
                                         placeholder="Descripción de la escena..."
                                       />
                                     </div>
@@ -902,14 +902,14 @@ export function DashboardGuion() {
                                         value={scene.escaleta}
                                         onChange={(e) => handleUpdateScene({ ...scene, escaleta: e.target.value })}
                                         rows={2}
-                                        className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-slate-200 font-mono text-[10px] focus:outline-none focus:border-violet-500"
+                                        className="w-full bg-brand-surface border border-[#3B3E47] rounded-lg p-2 text-slate-200 font-mono text-[10px] focus:outline-none focus:border-[#FD7014]"
                                         placeholder="Escaleta paso a paso..."
                                       />
                                     </div>
                                   </div>
                                 )}
                                 {(scene.conexiones || []).length > 0 && (
-                                  <div className="flex items-center gap-1 text-[9px] text-violet-400 font-semibold bg-violet-950/40 border border-violet-800/40 px-2 py-0.5 rounded-md w-fit mt-1">
+                                  <div className="flex items-center gap-1 text-[9px] text-[#FD7014] font-semibold bg-[#FD7014]/10/40 border border-violet-800/40 px-2 py-0.5 rounded-md w-fit mt-1">
                                     <span>🔗</span>
                                     <span>{(scene.conexiones || []).length} conexión{(scene.conexiones || []).length > 1 ? 'es' : ''}</span>
                                   </div>
@@ -923,10 +923,10 @@ export function DashboardGuion() {
                   </div>
 
                   {/* Primary Action: Go to Focused Editor for this Act */}
-                  <div className="pt-4 mt-5 border-t border-slate-800/80">
+                  <div className="pt-4 mt-5 border-t border-[#3B3E47]/80">
                     <button
                       onClick={() => navigate(`/tablero/${id || '1'}/acto/${act.id}`)}
-                      className="w-full bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white text-xs font-bold py-2.5 px-4 rounded-xl shadow-lg shadow-indigo-950/40 transition-all duration-200 flex items-center justify-center gap-2"
+                      className="w-full bg-gradient-to-r from-[#FD7014] to-[#e65f0f] hover:from-[#f57f2b] hover:to-[#e65f0f] text-white text-xs font-bold py-2.5 px-4 rounded-xl shadow-lg shadow-indigo-950/40 transition-all duration-200 flex items-center justify-center gap-2"
                     >
                       Editar
                     </button>
@@ -955,8 +955,8 @@ export function DashboardGuion() {
       {/* Twee Export Format Modal */}
       {isTweeExportOpen && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 w-full max-w-sm shadow-2xl">
-            <h3 className="text-sm font-bold text-slate-100 mb-4 flex items-center gap-2">
+          <div className="bg-brand-surface border border-[#3B3E47] rounded-2xl p-6 w-full max-w-sm shadow-2xl">
+            <h3 className="text-sm font-bold text-brand-text mb-4 flex items-center gap-2">
               <span>🎮</span> Exportar a Twine (.twee)
             </h3>
             <div className="mb-5">
@@ -966,8 +966,8 @@ export function DashboardGuion() {
               <div className="space-y-2.5">
                 <label className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition ${
                   tweeFormat === 'Harlowe'
-                    ? 'bg-violet-950/40 border-violet-500/60 text-violet-200'
-                    : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:border-slate-700'
+                    ? 'bg-[#FD7014]/10/40 border-[#FD7014]/60 text-violet-200'
+                    : 'bg-brand-bg/60 border-[#3B3E47] text-slate-400 hover:border-slate-700'
                 }`}>
                   <input
                     type="radio"
@@ -978,14 +978,14 @@ export function DashboardGuion() {
                     className="mt-0.5 accent-violet-500"
                   />
                   <div>
-                    <span className="text-xs font-bold block text-slate-100">Harlowe 3.x (Recomendado)</span>
+                    <span className="text-xs font-bold block text-brand-text">Harlowe 3.x (Recomendado)</span>
                     <p className="text-[10px] text-slate-400 mt-0.5 leading-relaxed">Formato estándar de Twine para narrativa interactiva y ficción. Fácil de usar y predeterminado.</p>
                   </div>
                 </label>
                 <label className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition ${
                   tweeFormat === 'SugarCube'
-                    ? 'bg-violet-950/40 border-violet-500/60 text-violet-200'
-                    : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:border-slate-700'
+                    ? 'bg-[#FD7014]/10/40 border-[#FD7014]/60 text-violet-200'
+                    : 'bg-brand-bg/60 border-[#3B3E47] text-slate-400 hover:border-slate-700'
                 }`}>
                   <input
                     type="radio"
@@ -996,7 +996,7 @@ export function DashboardGuion() {
                     className="mt-0.5 accent-violet-500"
                   />
                   <div>
-                    <span className="text-xs font-bold block text-slate-100">SugarCube 2.x</span>
+                    <span className="text-xs font-bold block text-brand-text">SugarCube 2.x</span>
                     <p className="text-[10px] text-slate-400 mt-0.5 leading-relaxed">Formato avanzado con integración de JavaScript, inventarios y estado de juego completo.</p>
                   </div>
                 </label>
@@ -1011,7 +1011,7 @@ export function DashboardGuion() {
               </button>
               <button
                 onClick={() => handleSaveTwee(tweeFormat)}
-                className="px-5 py-2.5 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white text-xs font-bold rounded-xl shadow-lg transition"
+                className="px-5 py-2.5 bg-gradient-to-r from-[#FD7014] to-[#e65f0f] hover:from-[#f57f2b] hover:to-[#e65f0f] text-white text-xs font-bold rounded-xl shadow-lg transition"
               >
                 Exportar .twee
               </button>
@@ -1023,8 +1023,8 @@ export function DashboardGuion() {
       {/* Save As Modal */}
       {isSaveAsModalOpen && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 max-w-md w-full shadow-2xl">
-            <h3 className="text-lg font-bold text-slate-100 mb-2">Guardar Proyecto Como...</h3>
+          <div className="bg-brand-surface border border-[#3B3E47] rounded-2xl p-6 max-w-md w-full shadow-2xl">
+            <h3 className="text-lg font-bold text-brand-text mb-2">Guardar Proyecto Como...</h3>
             <p className="text-xs text-slate-400 mb-4">
               Ingresa un nuevo nombre para el archivo de proyecto.
             </p>
@@ -1032,7 +1032,7 @@ export function DashboardGuion() {
               type="text"
               value={saveAsTitleInput}
               onChange={(e) => setSaveAsTitleInput(e.target.value)}
-              className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-slate-100 mb-6 focus:outline-none focus:border-violet-500"
+              className="w-full bg-brand-bg border border-[#3B3E47] rounded-xl p-3 text-sm text-brand-text mb-6 focus:outline-none focus:border-[#FD7014]"
             />
             <div className="flex items-center justify-end gap-3">
               <button
@@ -1043,7 +1043,7 @@ export function DashboardGuion() {
               </button>
               <button
                 onClick={handleSaveAsSubmit}
-                className="px-4 py-2 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white text-xs font-bold rounded-xl shadow-lg"
+                className="px-4 py-2 bg-gradient-to-r from-[#FD7014] to-[#e65f0f] hover:from-[#f57f2b] hover:to-[#e65f0f] text-white text-xs font-bold rounded-xl shadow-lg"
               >
                 Descarga Directa
               </button>
@@ -1055,9 +1055,9 @@ export function DashboardGuion() {
       {/* Preview Modal with Tabs */}
       {isMdReaderOpen && (
         <div className="fixed inset-0 bg-black/85 backdrop-blur-sm flex items-center justify-center p-6 z-50">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-4xl max-h-[85vh] flex flex-col shadow-2xl overflow-hidden">
+          <div className="bg-brand-surface border border-[#3B3E47] rounded-2xl w-full max-w-4xl max-h-[85vh] flex flex-col shadow-2xl overflow-hidden">
             {/* Header */}
-            <div className="px-6 py-4 bg-slate-900 border-b border-slate-800 flex items-center justify-between">
+            <div className="px-6 py-4 bg-brand-surface border-b border-[#3B3E47] flex items-center justify-between">
               <h3 className="text-lg font-bold text-violet-300 flex items-center gap-2">
                 <span>📖</span> Vista Previa del Guion
               </h3>
@@ -1070,7 +1070,7 @@ export function DashboardGuion() {
             </div>
 
             {/* Tab Bar */}
-            <div className="flex border-b border-slate-800 bg-slate-900/80 px-6">
+            <div className="flex border-b border-[#3B3E47] bg-brand-surface/80 px-6">
               {([
                 { key: 'formatted' as const, label: '📖 Formateado' },
                 { key: 'raw' as const, label: '📝 Markdown' },
@@ -1081,7 +1081,7 @@ export function DashboardGuion() {
                   onClick={() => setPreviewTab(tab.key)}
                   className={`px-4 py-2.5 text-xs font-semibold transition-all border-b-2 ${
                     previewTab === tab.key
-                      ? 'text-violet-300 border-violet-500 bg-violet-950/30'
+                      ? 'text-violet-300 border-[#FD7014] bg-[#FD7014]/10/30'
                       : 'text-slate-400 border-transparent hover:text-slate-200 hover:border-slate-700'
                   }`}
                 >
@@ -1091,7 +1091,7 @@ export function DashboardGuion() {
             </div>
 
             {/* Tab Content */}
-            <div className="flex-1 p-6 overflow-y-auto bg-slate-950 scrollbar-hide">
+            <div className="flex-1 p-6 overflow-y-auto bg-brand-bg scrollbar-hide">
               {previewTab === 'formatted' && (
                 <div className="prose-custom">
                   {renderFormattedMarkdown(generateMarkdownText())}
@@ -1110,7 +1110,7 @@ export function DashboardGuion() {
             </div>
 
             {/* Footer */}
-            <div className="px-6 py-4 bg-slate-900 border-t border-slate-800 flex items-center justify-between">
+            <div className="px-6 py-4 bg-brand-surface border-t border-[#3B3E47] flex items-center justify-between">
               <button
                 onClick={() => {
                   const content = previewTab === 'json'
@@ -1129,7 +1129,7 @@ export function DashboardGuion() {
               </button>
               <button
                 onClick={() => setIsMdReaderOpen(false)}
-                className="bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white text-xs font-bold px-5 py-2.5 rounded-xl shadow-lg"
+                className="bg-gradient-to-r from-[#FD7014] to-[#e65f0f] hover:from-[#f57f2b] hover:to-[#e65f0f] text-white text-xs font-bold px-5 py-2.5 rounded-xl shadow-lg"
               >
                 Cerrar Visor
               </button>

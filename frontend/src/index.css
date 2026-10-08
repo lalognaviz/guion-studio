@@ -11,3 +11,8 @@
       scrollbar-width: none;
   }
 }
+
+::selection {
+  background-color: rgba(253, 112, 20, 0.35);
+  color: #EDEDED;
+}
