@@ -36,6 +36,30 @@ export namespace domain {
 	        this.label = source["label"];
 	    }
 	}
+	export class Opcion {
+	    id: string;
+	    escena_id: string;
+	    target_scene_id: string;
+	    texto: string;
+	    orden: number;
+	    condiciones?: string;
+	    consecuencias?: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new Opcion(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.escena_id = source["escena_id"];
+	        this.target_scene_id = source["target_scene_id"];
+	        this.texto = source["texto"];
+	        this.orden = source["orden"];
+	        this.condiciones = source["condiciones"];
+	        this.consecuencias = source["consecuencias"];
+	    }
+	}
 	export class Escena {
 	    id: string;
 	    act_id: string;
@@ -49,6 +73,7 @@ export namespace domain {
 	    texto_juego?: string;
 	    dialogos?: string;
 	    conexiones?: Conexion[];
+	    opciones?: Opcion[];
 	
 	    static createFrom(source: any = {}) {
 	        return new Escena(source);
@@ -68,6 +93,7 @@ export namespace domain {
 	        this.texto_juego = source["texto_juego"];
 	        this.dialogos = source["dialogos"];
 	        this.conexiones = this.convertValues(source["conexiones"], Conexion);
+	        this.opciones = this.convertValues(source["opciones"], Opcion);
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -110,6 +136,7 @@ export namespace domain {
 	        this.fecha = source["fecha"];
 	    }
 	}
+	
 	export class Personaje {
 	    id: string;
 	    nombre: string;

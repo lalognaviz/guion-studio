@@ -101,6 +101,20 @@ const schemaV1 = `
 	CREATE INDEX IF NOT EXISTS idx_escenas_proyecto ON escenas(proyecto_id);
 	CREATE INDEX IF NOT EXISTS idx_escenas_acto ON escenas(acto_id);
 	CREATE INDEX IF NOT EXISTS idx_conexiones_proyecto ON conexiones(proyecto_id);
+	CREATE TABLE IF NOT EXISTS opciones (
+		id TEXT PRIMARY KEY,
+		proyecto_id TEXT NOT NULL REFERENCES proyectos(id) ON DELETE CASCADE,
+		escena_id TEXT NOT NULL,
+		target_scene_id TEXT,
+		texto TEXT NOT NULL,
+		orden INTEGER NOT NULL,
+		condiciones TEXT DEFAULT '',
+		consecuencias TEXT DEFAULT ''
+	);
+
+	CREATE INDEX IF NOT EXISTS idx_opciones_proyecto ON opciones(proyecto_id);
+	CREATE INDEX IF NOT EXISTS idx_opciones_escena ON opciones(escena_id);
+
 	CREATE TABLE IF NOT EXISTS personajes (
 		id TEXT PRIMARY KEY,
 		proyecto_id TEXT NOT NULL REFERENCES proyectos(id) ON DELETE CASCADE,

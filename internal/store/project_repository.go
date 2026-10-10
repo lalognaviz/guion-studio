@@ -246,6 +246,9 @@ func (r *ProjectRepository) GuardarProyecto(p domain.Proyecto) error {
 		return err
 	}
 
+	if _, err := tx.Exec(`DELETE FROM opciones WHERE proyecto_id = ?`, p.ID); err != nil {
+		return err
+	}
 	if _, err := tx.Exec(`DELETE FROM timeline WHERE proyecto_id = ?`, p.ID); err != nil {
 		return err
 	}
@@ -291,6 +294,14 @@ func (r *ProjectRepository) GuardarProyecto(p domain.Proyecto) error {
 				INSERT INTO conexiones (id, proyecto_id, escena_origen_id, escena_destino_id, etiqueta)
 				VALUES (?, ?, ?, ?, ?)`,
 				c.ID, p.ID, s.ID, c.TargetSceneID, c.Label); err != nil {
+				return err
+			}
+		}
+		for _, o := range s.Opciones {
+			if _, err := tx.Exec(`
+				INSERT INTO opciones (id, proyecto_id, escena_id, target_scene_id, texto, orden, condiciones, consecuencias)
+				VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+				o.ID, p.ID, s.ID, o.TargetSceneID, o.Texto, o.Orden, o.Condiciones, o.Consecuencias); err != nil {
 				return err
 			}
 		}
