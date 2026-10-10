@@ -34,3 +34,14 @@ export type EventoTimeline = {
 export type Character = Personaje;
 export type Location = Ubicacion;
 export type TimelineEvent = EventoTimeline;
+
+export type Opcion = {
+  id: string;
+  escena_id: string;
+  target_scene_id?: string;
+  texto: string;
+  orden: number;
+  condiciones?: string;
+  consecuencias?: string;
+};
+export type Choice = Opcion;

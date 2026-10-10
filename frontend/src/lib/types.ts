@@ -30,6 +30,7 @@ export type Scene = {
   texto_juego?: string;
   dialogos?: string;
   conexiones?: SceneConnection[];
+  opciones?: import('./entities').Opcion[];
 };
 
 export type Act = {

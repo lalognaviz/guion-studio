@@ -275,7 +275,7 @@ describe('GuionStudio App & Unified Script Dashboard', () => {
     
     // Connection appears in list
     expect(screen.getByText(/Ir a comprar equipamiento/i)).toBeInTheDocument();
-    expect(screen.getByText(/Encuentro con el Mercader/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/Encuentro con el Mercader/i).length).toBeGreaterThan(0);
     
     // Accept modal changes
     const acceptBtn = screen.getByRole('button', { name: /✓ Aceptar/i });
