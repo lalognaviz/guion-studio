@@ -138,47 +138,79 @@ func (r *ProjectRepository) ObtenerProyecto(id string) (*domain.Proyecto, error)
 	// cargar entidades auxiliares
 	{
 		rows, err := r.sql.Query(`SELECT id, nombre, descripcion, personalidad, apariencia, notas FROM personajes WHERE proyecto_id = ?`, id)
-		if err == nil {
-			for rows.Next() {
-				var pe domain.Personaje
-				rows.Scan(&pe.ID, &pe.Nombre, &pe.Descripcion, &pe.Personalidad, &pe.Apariencia, &pe.Notas)
-				p.Personajes = append(p.Personajes, pe)
-			}
-			rows.Close()
+		if err != nil {
+			return nil, err
 		}
+		for rows.Next() {
+			var pe domain.Personaje
+			if err := rows.Scan(&pe.ID, &pe.Nombre, &pe.Descripcion, &pe.Personalidad, &pe.Apariencia, &pe.Notas); err != nil {
+				rows.Close()
+				return nil, err
+			}
+			p.Personajes = append(p.Personajes, pe)
+		}
+		if err := rows.Err(); err != nil {
+			rows.Close()
+			return nil, err
+		}
+		rows.Close()
 	}
 	{
 		rows, err := r.sql.Query(`SELECT id, nombre, descripcion, notas FROM ubicaciones WHERE proyecto_id = ?`, id)
-		if err == nil {
-			for rows.Next() {
-				var u domain.Ubicacion
-				rows.Scan(&u.ID, &u.Nombre, &u.Descripcion, &u.Notas)
-				p.Ubicaciones = append(p.Ubicaciones, u)
-			}
-			rows.Close()
+		if err != nil {
+			return nil, err
 		}
+		for rows.Next() {
+			var u domain.Ubicacion
+			if err := rows.Scan(&u.ID, &u.Nombre, &u.Descripcion, &u.Notas); err != nil {
+				rows.Close()
+				return nil, err
+			}
+			p.Ubicaciones = append(p.Ubicaciones, u)
+		}
+		if err := rows.Err(); err != nil {
+			rows.Close()
+			return nil, err
+		}
+		rows.Close()
 	}
 	{
 		rows, err := r.sql.Query(`SELECT id, nombre, valor, tipo, descripcion FROM variables WHERE proyecto_id = ?`, id)
-		if err == nil {
-			for rows.Next() {
-				var v domain.Variable
-				rows.Scan(&v.ID, &v.Nombre, &v.Valor, &v.Tipo, &v.Descripcion)
-				p.Variables = append(p.Variables, v)
-			}
-			rows.Close()
+		if err != nil {
+			return nil, err
 		}
+		for rows.Next() {
+			var v domain.Variable
+			if err := rows.Scan(&v.ID, &v.Nombre, &v.Valor, &v.Tipo, &v.Descripcion); err != nil {
+				rows.Close()
+				return nil, err
+			}
+			p.Variables = append(p.Variables, v)
+		}
+		if err := rows.Err(); err != nil {
+			rows.Close()
+			return nil, err
+		}
+		rows.Close()
 	}
 	{
 		rows, err := r.sql.Query(`SELECT id, orden, titulo, descripcion, escena_id, fecha FROM timeline WHERE proyecto_id = ? ORDER BY orden ASC`, id)
-		if err == nil {
-			for rows.Next() {
-				var t domain.EventoTimeline
-				rows.Scan(&t.ID, &t.Orden, &t.Titulo, &t.Descripcion, &t.EscenaID, &t.Fecha)
-				p.Timeline = append(p.Timeline, t)
-			}
-			rows.Close()
+		if err != nil {
+			return nil, err
 		}
+		for rows.Next() {
+			var t domain.EventoTimeline
+			if err := rows.Scan(&t.ID, &t.Orden, &t.Titulo, &t.Descripcion, &t.EscenaID, &t.Fecha); err != nil {
+				rows.Close()
+				return nil, err
+			}
+			p.Timeline = append(p.Timeline, t)
+		}
+		if err := rows.Err(); err != nil {
+			rows.Close()
+			return nil, err
+		}
+		rows.Close()
 	}
 	return &p, nil
 }

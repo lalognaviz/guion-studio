@@ -69,6 +69,10 @@ export function DashboardGuion() {
         if (loaded.synopsis !== undefined) setProjectSynopsis(loaded.synopsis);
         setActs(loaded.acts ?? []);
         setScenes(loaded.scenes ?? []);
+        setPersonajes(loaded.personajes ?? []);
+        setUbicaciones(loaded.ubicaciones ?? []);
+        setVariables(loaded.variables ?? []);
+        setTimeline(loaded.timeline ?? []);
       })
       .catch((e) => console.warn('No se pudo cargar el proyecto:', e));
     return () => {
