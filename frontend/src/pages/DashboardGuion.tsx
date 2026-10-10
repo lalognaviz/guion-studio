@@ -17,6 +17,10 @@ import { NotificationToast } from '../components/NotificationToast';
 import { TweeExportModal } from '../components/TweeExportModal';
 import { SaveAsModal } from '../components/SaveAsModal';
 import { PreviewModal } from '../components/PreviewModal';
+import { CharactersPanel } from '../components/CharactersPanel';
+import { LocationsPanel } from '../components/LocationsPanel';
+import { VariablesPanel } from '../components/VariablesPanel';
+import { TimelinePanel } from '../components/TimelinePanel';
 
 // -------------------------------------------------------------
 // 2. DASHBOARD DEL GUION & DETALLES UNIFICADO (path="/tablero/:id" & "/proyecto/:id")
@@ -31,6 +35,11 @@ export function DashboardGuion() {
   const [projectSynopsis, setProjectSynopsis] = useState<string>(cached?.synopsis ?? '');
   const [acts, setActs] = useState<Act[]>(cached?.acts ?? INITIAL_ACTS);
   const [scenes, setScenes] = useState<Scene[]>(cached?.scenes ?? INITIAL_SCENES);
+  const [personajes, setPersonajes] = useState<import('../lib/entities').Personaje[]>(cached?.personajes ?? []);
+  const [ubicaciones, setUbicaciones] = useState<import('../lib/entities').Ubicacion[]>(cached?.ubicaciones ?? []);
+  const [variables, setVariables] = useState<import('../lib/entities').Variable[]>(cached?.variables ?? []);
+  const [timeline, setTimeline] = useState<import('../lib/entities').EventoTimeline[]>(cached?.timeline ?? []);
+
 
   const [expandedSceneId, setExpandedSceneId] = useState<string | null>(null);
   const [maximizedScene, setMaximizedScene] = useState<Scene | null>(null);
@@ -77,13 +86,26 @@ export function DashboardGuion() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const saveState = (newTitle: string, newSynopsis: string, newActs: Act[], newScenes: Scene[]) => {
+  const saveState = (
+    newTitle: string,
+    newSynopsis: string,
+    newActs: Act[],
+    newScenes: Scene[],
+    newPersonajes = personajes,
+    newUbicaciones = ubicaciones,
+    newVariables = variables,
+    newTimeline = timeline
+  ) => {
     const data = toProjectData({
       id: projectId,
       title: newTitle,
       synopsis: newSynopsis,
       acts: newActs,
       scenes: newScenes,
+      personajes: newPersonajes,
+      ubicaciones: newUbicaciones,
+      variables: newVariables,
+      timeline: newTimeline,
     });
     projectApi.guardar(data).catch((e) => console.error('No se pudo guardar el proyecto:', e));
   };
@@ -250,6 +272,39 @@ export function DashboardGuion() {
           onDeleteScene={handleDeleteScene}
           onEditAct={(actId) => navigate(`/tablero/${id || '1'}/acto/${actId}`)}
         />
+
+
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+          <CharactersPanel
+            personajes={personajes}
+            onChange={(p) => {
+              setPersonajes(p);
+              saveState(projectTitle, projectSynopsis, acts, scenes, p, ubicaciones, variables, timeline);
+            }}
+          />
+          <LocationsPanel
+            ubicaciones={ubicaciones}
+            onChange={(u) => {
+              setUbicaciones(u);
+              saveState(projectTitle, projectSynopsis, acts, scenes, personajes, u, variables, timeline);
+            }}
+          />
+          <VariablesPanel
+            variables={variables}
+            onChange={(v) => {
+              setVariables(v);
+              saveState(projectTitle, projectSynopsis, acts, scenes, personajes, ubicaciones, v, timeline);
+            }}
+          />
+          <TimelinePanel
+            timeline={timeline}
+            scenes={scenes}
+            onChange={(t) => {
+              setTimeline(t);
+              saveState(projectTitle, projectSynopsis, acts, scenes, personajes, ubicaciones, variables, t);
+            }}
+          />
+        </div>
       </main>
 
       {/* Maximized Scene Modal */}

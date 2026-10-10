@@ -88,6 +88,88 @@ export namespace domain {
 		    return a;
 		}
 	}
+	export class EventoTimeline {
+	    id: string;
+	    orden: number;
+	    titulo: string;
+	    descripcion?: string;
+	    escena_id?: string;
+	    fecha?: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new EventoTimeline(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.orden = source["orden"];
+	        this.titulo = source["titulo"];
+	        this.descripcion = source["descripcion"];
+	        this.escena_id = source["escena_id"];
+	        this.fecha = source["fecha"];
+	    }
+	}
+	export class Personaje {
+	    id: string;
+	    nombre: string;
+	    descripcion?: string;
+	    personalidad?: string;
+	    apariencia?: string;
+	    notas?: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new Personaje(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.nombre = source["nombre"];
+	        this.descripcion = source["descripcion"];
+	        this.personalidad = source["personalidad"];
+	        this.apariencia = source["apariencia"];
+	        this.notas = source["notas"];
+	    }
+	}
+	export class Variable {
+	    id: string;
+	    nombre: string;
+	    valor?: string;
+	    tipo?: string;
+	    descripcion?: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new Variable(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.nombre = source["nombre"];
+	        this.valor = source["valor"];
+	        this.tipo = source["tipo"];
+	        this.descripcion = source["descripcion"];
+	    }
+	}
+	export class Ubicacion {
+	    id: string;
+	    nombre: string;
+	    descripcion?: string;
+	    notas?: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new Ubicacion(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.nombre = source["nombre"];
+	        this.descripcion = source["descripcion"];
+	        this.notas = source["notas"];
+	    }
+	}
 	export class Proyecto {
 	    id: string;
 	    title: string;
@@ -97,6 +179,10 @@ export namespace domain {
 	    scenes: Escena[];
 	    createdAt?: string;
 	    updatedAt: string;
+	    personajes?: Personaje[];
+	    ubicaciones?: Ubicacion[];
+	    variables?: Variable[];
+	    timeline?: EventoTimeline[];
 	
 	    static createFrom(source: any = {}) {
 	        return new Proyecto(source);
@@ -112,6 +198,10 @@ export namespace domain {
 	        this.scenes = this.convertValues(source["scenes"], Escena);
 	        this.createdAt = source["createdAt"];
 	        this.updatedAt = source["updatedAt"];
+	        this.personajes = this.convertValues(source["personajes"], Personaje);
+	        this.ubicaciones = this.convertValues(source["ubicaciones"], Ubicacion);
+	        this.variables = this.convertValues(source["variables"], Variable);
+	        this.timeline = this.convertValues(source["timeline"], EventoTimeline);
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -152,6 +242,7 @@ export namespace domain {
 	        this.creado_en = source["creado_en"];
 	    }
 	}
+	
 
 }
 

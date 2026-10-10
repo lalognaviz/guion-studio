@@ -101,6 +101,48 @@ const schemaV1 = `
 	CREATE INDEX IF NOT EXISTS idx_escenas_proyecto ON escenas(proyecto_id);
 	CREATE INDEX IF NOT EXISTS idx_escenas_acto ON escenas(acto_id);
 	CREATE INDEX IF NOT EXISTS idx_conexiones_proyecto ON conexiones(proyecto_id);
+	CREATE TABLE IF NOT EXISTS personajes (
+		id TEXT PRIMARY KEY,
+		proyecto_id TEXT NOT NULL REFERENCES proyectos(id) ON DELETE CASCADE,
+		nombre TEXT NOT NULL,
+		descripcion TEXT DEFAULT '',
+		personalidad TEXT DEFAULT '',
+		apariencia TEXT DEFAULT '',
+		notas TEXT DEFAULT ''
+	);
+
+	CREATE TABLE IF NOT EXISTS ubicaciones (
+		id TEXT PRIMARY KEY,
+		proyecto_id TEXT NOT NULL REFERENCES proyectos(id) ON DELETE CASCADE,
+		nombre TEXT NOT NULL,
+		descripcion TEXT DEFAULT '',
+		notas TEXT DEFAULT ''
+	);
+
+	CREATE TABLE IF NOT EXISTS variables (
+		id TEXT PRIMARY KEY,
+		proyecto_id TEXT NOT NULL REFERENCES proyectos(id) ON DELETE CASCADE,
+		nombre TEXT NOT NULL,
+		valor TEXT DEFAULT '',
+		tipo TEXT DEFAULT '',
+		descripcion TEXT DEFAULT ''
+	);
+
+	CREATE TABLE IF NOT EXISTS timeline (
+		id TEXT PRIMARY KEY,
+		proyecto_id TEXT NOT NULL REFERENCES proyectos(id) ON DELETE CASCADE,
+		orden INTEGER NOT NULL,
+		titulo TEXT NOT NULL,
+		descripcion TEXT DEFAULT '',
+		escena_id TEXT,
+		fecha TEXT DEFAULT ''
+	);
+
+	CREATE INDEX IF NOT EXISTS idx_personajes_proyecto ON personajes(proyecto_id);
+	CREATE INDEX IF NOT EXISTS idx_ubicaciones_proyecto ON ubicaciones(proyecto_id);
+	CREATE INDEX IF NOT EXISTS idx_variables_proyecto ON variables(proyecto_id);
+	CREATE INDEX IF NOT EXISTS idx_timeline_proyecto ON timeline(proyecto_id);
+
 `
 
 const schemaVersion = 1

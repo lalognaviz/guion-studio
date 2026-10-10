@@ -7,6 +7,10 @@ export type ProjectSnapshot = {
   synopsis: string;
   acts: Act[];
   scenes: Scene[];
+  personajes?: import('./entities').Personaje[];
+  ubicaciones?: import('./entities').Ubicacion[];
+  variables?: import('./entities').Variable[];
+  timeline?: import('./entities').EventoTimeline[];
 };
 
 // Construye el objeto persistible con la marca de tiempo actual.
@@ -18,6 +22,10 @@ export function toProjectData(snapshot: ProjectSnapshot): ProjectData {
     acts: snapshot.acts,
     scenes: snapshot.scenes,
     updatedAt: new Date().toISOString(),
+    personajes: snapshot.personajes,
+    ubicaciones: snapshot.ubicaciones,
+    variables: snapshot.variables,
+    timeline: snapshot.timeline,
   };
 }
 

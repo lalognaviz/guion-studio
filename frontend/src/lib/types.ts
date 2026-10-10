@@ -7,6 +7,9 @@ export type ProyectoResumen = {
   creado_en: string;
 };
 
+// Exportar entidades auxiliares
+export * from './entities';
+
 // Types for Narrative Board
 export type SceneConnection = {
   id: string;
@@ -45,4 +48,8 @@ export type ProjectData = {
   scenes: Scene[];
   updatedAt: string;
   createdAt?: string;
+  personajes?: import('./entities').Personaje[];
+  ubicaciones?: import('./entities').Ubicacion[];
+  variables?: import('./entities').Variable[];
+  timeline?: import('./entities').EventoTimeline[];
 };
