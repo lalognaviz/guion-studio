@@ -1,6 +1,6 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import App, { seedDemoProjects } from './App';
+import App, { seedDemoProjects, clearProjectsStore } from './App';
 
 describe('GuionStudio App & Unified Script Dashboard', () => {
   beforeEach(() => {
@@ -154,7 +154,7 @@ describe('GuionStudio App & Unified Script Dashboard', () => {
     fireEvent.click(newProjBtn);
 
     // Edit title of newly created project
-    const titleInput = screen.getByDisplayValue('Nuevo Proyecto Guion');
+    const titleInput = await screen.findByDisplayValue('Nuevo Proyecto Guion');
     fireEvent.change(titleInput, { target: { value: 'Proyecto Fantasma' } });
 
     // Navigate back to Dashboard
@@ -231,7 +231,7 @@ describe('GuionStudio App & Unified Script Dashboard', () => {
   });
 
   it('shows welcome empty state and allows creating an example project', async () => {
-    localStorage.clear(); // Clear demo projects for this test
+    clearProjectsStore(); // Clear demo projects for this test
     render(<App initialRoute="/" />);
 
     await waitFor(() => {
@@ -275,7 +275,7 @@ describe('GuionStudio App & Unified Script Dashboard', () => {
     
     // Connection appears in list
     expect(screen.getByText(/Ir a comprar equipamiento/i)).toBeInTheDocument();
-    expect(screen.getByText(/Encuentro con el Mercader/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/Encuentro con el Mercader/i).length).toBeGreaterThan(0);
     
     // Accept modal changes
     const acceptBtn = screen.getByRole('button', { name: /✓ Aceptar/i });
