@@ -2,11 +2,11 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 
 import {
-  saveProjectToStorage,
-  loadProjectFromStorage,
   INITIAL_ACTS,
   INITIAL_SCENES,
 } from '../lib/storage';
+import { getProyectoCached } from '../api/client';
+import { projectApi } from '../api/projectApi';
 import type { Act, Scene, ProjectData } from '../lib/types';
 import { MaximizedSceneModal } from '../components/MaximizedSceneModal';
 
@@ -17,46 +17,35 @@ export function EditorActo() {
   const { id, actoId } = useParams<{ id: string; actoId: string }>();
   const navigate = useNavigate();
 
-  const [projectId, setProjectId] = useState<string | number>(id || 'proj-1');
-  const [projectTitle, setProjectTitle] = useState<string>('CyberNights');
-  const [projectSynopsis, setProjectSynopsis] = useState<string>('Un thriller cyberpunk sobre conspiraciones corporativas.');
-  const [acts, setActs] = useState<Act[]>(INITIAL_ACTS);
-  const [scenes, setScenes] = useState<Scene[]>(INITIAL_SCENES);
+  const cached = id ? getProyectoCached(String(id)) : null;
+  const [projectId, setProjectId] = useState<string>(cached ? String(cached.id) : id || '');
+  const [projectTitle, setProjectTitle] = useState<string>(cached?.title ?? '');
+  const [projectSynopsis, setProjectSynopsis] = useState<string>(cached?.synopsis ?? '');
+  const [acts, setActs] = useState<Act[]>(cached?.acts ?? INITIAL_ACTS);
+  const [scenes, setScenes] = useState<Scene[]>(cached?.scenes ?? INITIAL_SCENES);
 
   const [expandedSceneId, setExpandedSceneId] = useState<string | null>(null);
   const [maximizedScene, setMaximizedScene] = useState<Scene | null>(null);
   const [notification, setNotification] = useState<string | null>(null);
   const [theme, setTheme] = useState<'light' | 'dark'>('dark');
 
-  // Load project state from localStorage
+  // Carga el proyecto desde el repositorio (SQLite o almacén en memoria)
   useEffect(() => {
-    if (id) {
-      const loaded = loadProjectFromStorage(id);
-      if (loaded) {
-        setProjectId(loaded.id);
+    if (!id) return;
+    let cancelled = false;
+    projectApi.obtener(String(id))
+      .then((loaded) => {
+        if (cancelled || !loaded) return;
+        setProjectId(String(loaded.id));
         setProjectTitle(loaded.title);
         if (loaded.synopsis !== undefined) setProjectSynopsis(loaded.synopsis);
-        setActs(loaded.acts);
-        setScenes(loaded.scenes);
-        return;
-      }
-    }
-
-    const saved = localStorage.getItem('guionstudio_active_project');
-    if (saved) {
-      try {
-        const data: ProjectData = JSON.parse(saved);
-        if (data.title && Array.isArray(data.acts) && Array.isArray(data.scenes)) {
-          setProjectId(data.id || `proj-${id || '1'}`);
-          setProjectTitle(data.title);
-          if (data.synopsis !== undefined) setProjectSynopsis(data.synopsis);
-          setActs(data.acts);
-          setScenes(data.scenes);
-        }
-      } catch (e) {
-        console.error("Error al cargar proyecto:", e);
-      }
-    }
+        setActs(loaded.acts ?? []);
+        setScenes(loaded.scenes ?? []);
+      })
+      .catch((e) => console.warn('No se pudo cargar el proyecto:', e));
+    return () => {
+      cancelled = true;
+    };
   }, [id]);
 
   // Sync theme
@@ -91,7 +80,7 @@ export function EditorActo() {
       scenes: newScenes,
       updatedAt: new Date().toISOString(),
     };
-    saveProjectToStorage(data);
+    projectApi.guardar(data).catch((e) => console.error('No se pudo guardar el proyecto:', e));
   };
 
   const updateCurrentAct = (fields: Partial<Act>) => {

@@ -1,24 +1,10 @@
-// Types for IPC Rust Models
+// Tipos del contrato IPC (espejo de internal/store/store.go)
 export type ProyectoResumen = {
-  id: number | string;
+  id: string;
   titulo: string;
   ruta_archivo?: string | null;
   sinopsis?: string;
   creado_en: string;
-};
-
-export type ActoResumen = {
-  id: number;
-  titulo: string;
-  orden: number;
-};
-
-export type ProyectoDetalle = {
-  id: number;
-  titulo: string;
-  ruta_archivo?: string | null;
-  sinopsis: string;
-  actos: ActoResumen[];
 };
 
 // Types for Narrative Board
@@ -52,7 +38,7 @@ export type Act = {
 };
 
 export type ProjectData = {
-  id: string | number;
+  id: string;
   title: string;
   synopsis?: string;
   acts: Act[];

@@ -6,10 +6,11 @@ UI strings and domain language are Spanish; keep new UI text Spanish.
 ## Commands (verified)
 
 - **Typecheck**: `cd frontend && npx tsc --noEmit` — no `lint`/`format` script exists; `tsc` is the only static check.
-- **Frontend tests**: `npm --prefix frontend test` (= `vitest run`) — one file, `frontend/src/App.test.tsx` (16 tests, jsdom).
+- **Frontend tests**: `npm --prefix frontend test` (= `vitest run`) — `frontend/src/App.test.tsx` (16 integration tests, jsdom)
+  plus `frontend/src/lib/sceneOperations.test.ts` (pure scene-operation units).
 - **Go tests**: `go test ./...` — `internal/store` is pure Go (no CGO, no GTK needed) and covers schema/seed/queries.
 - **Verification order**: `tsc` → `vitest` → `go test`.
-- **Dev (desktop, Go backend live)**: `wails dev` · **Dev (browser-only, localStorage)**: `npm --prefix frontend run dev`
+- **Dev (desktop, Go backend live)**: `wails dev` · **Dev (browser-only, in-memory store)**: `npm --prefix frontend run dev`
   (Vite pinned to port **1420 with `strictPort`**).
 - **Build**: `wails build -nsis` → `build/bin/guion-studio.exe` + `build/bin/guion-studio-amd64-installer.exe`.
 - **Node ≥20.19 required for tests** (jsdom 29; crashes with `ERR_REQUIRE_ESM` on Node 18). CI uses Node 22.
@@ -23,22 +24,29 @@ UI strings and domain language are Spanish; keep new UI text Spanish.
 
 ## Architecture
 
-- **Layout**: Go shell at repo root (`main.go` window+embed, `app.go` IPC methods, `internal/store` SQLite),
-  frontend entirely in `frontend/`. `frontend/src/App.tsx` is only the `MemoryRouter` (routes `/`,
+- **Layout**: Go shell at repo root (`main.go` window+embed; `app.go` is a thin Wails facade delegating to
+  services), layered backend under `internal/` — `internal/domain` (entities + business rules), `internal/application`
+  (`ProjectService`/`SceneService` orchestration) and `internal/store` (`sqlite.go` open/migrate/seed +
+  `project_repository.go` persistence). Frontend entirely in `frontend/`. `frontend/src/App.tsx` is only the `MemoryRouter` (routes `/`,
   `/proyecto/:id`, `/tablero/:id`, `/tablero/:id/acto/:actoId`); screens live in `frontend/src/pages/`
-  (`Dashboard`, `DashboardGuion`, `EditorActo`) and `frontend/src/components/`.
+  (`Dashboard`, `DashboardGuion`, `EditorActo`), with presentational parts in `frontend/src/components/`,
+  stateful logic in `frontend/src/hooks/` (`useNotification`, `useSceneOperations`, `useProjectExport`) and
+  pure helpers in `frontend/src/lib/` (`export.ts` generators, `sceneOperations.ts`).
 - **`frontend/wailsjs/` is GENERATED** by `wails generate module` — never hand-edit; regenerate after
   changing bound Go methods. It is committed so tests/CI work on fresh clones. (CI includes a bindings sync gate:
   `wails generate module` must produce no changes in `frontend/wailsjs/`.)
-- **IPC**: exactly two bound methods in `app.go` — `ObtenerProyectosRecientes`, `ObtenerDetallesProyecto`.
-  All calls go through `frontend/src/api/client.ts`, which wraps them in try/catch with a **localStorage
-  fallback**, so the app also runs in a plain browser. Tests rely on this: `window.go` is undefined in
-  jsdom → call rejects → fallback. **There are no mocks; don't add any without checking the tests.**
-- **Dual persistence**: frontend `localStorage` (keys `guionstudio_projects_map`, `guionstudio_active_project`,
-  `guionstudio_hidden_projects`) and SQLite `guiones.db` at `UserConfigDir()/guion-studio/`, created and seeded
-  by `internal/store` (tables `proyectos`/`actos`, demo rows CyberNights + Shadow Realm). Don't assume one
-  source of truth — the frontend merges both in `api/client.ts`.
-- **Contract sync**: TS types in `frontend/src/lib/types.ts` mirror the Go structs in `internal/store/store.go`
+- **IPC**: bound methods in `app.go` — projects (`ListarProyectos`, `ObtenerProyecto`, `GuardarProyecto`,
+  `EliminarProyecto`) and scenes (`CrearEscena`, `ActualizarEscena`, `EliminarEscena`, `MoverEscena`,
+  `ReordenarEscena`, `ConectarEscenas`, `DesconectarEscenas`, `CambiarEstadoEscena`). All calls go through
+  `frontend/src/api/client.ts`, the project repository. With Wails
+  available it talks to SQLite; without it (plain browser/jsdom) it uses a module-level **in-memory store**
+  seeded by `seedDemoProjects()`. Tests rely on this: `window.go` is undefined in jsdom → in-memory path.
+  **There are no mocks; don't add any without checking the tests.**
+- **Persistence**: SQLite `guiones.db` at `UserConfigDir()/guion-studio/` is the single source of truth for
+  projects/acts/scenes/connections, created via versioned migrations and seeded by `internal/store`. The
+  frontend uses `localStorage` **only for UI preferences** (key `guionstudio_hidden_projects`); legacy keys
+  `guionstudio_projects_map`/`guionstudio_active_project` are imported once by `migrarProyectosLegacy()`.
+- **Contract sync**: TS types in `frontend/src/lib/types.ts` mirror the Go structs in `internal/domain`
   (field names come from the `json` tags). Update both sides when the contract changes, then regenerate bindings.
 - `go:embed all:frontend/dist` requires `frontend/dist` to exist — the committed `frontend/dist/gitkeep`
   keeps `go build` working on fresh clones; `frontend/package.json` has `postbuild` to restore `dist/gitkeep`
@@ -46,7 +54,8 @@ UI strings and domain language are Spanish; keep new UI text Spanish.
 
 ## Testing quirks
 
-- Tests call `seedDemoProjects()` (re-exported from `./App`) and `localStorage.clear()` in `beforeEach`.
+- Tests call `seedDemoProjects()` / `clearProjectsStore()` (re-exported from `./App`) and `localStorage.clear()`
+  in `beforeEach`. Project persistence is async: use `findBy*`/`waitFor` when a freshly saved project must be read.
 - Assertions target exact Spanish UI strings (e.g. `+ Nuevo Guion`, `CyberNights`) — renaming UI text
   or demo data breaks tests. `App` accepts an `initialRoute` prop the tests depend on.
 - `tsconfig` is strict with `noUnusedLocals`/`noUnusedParameters`; `tsc` fails on unused imports/vars.

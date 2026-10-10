@@ -1,4 +1,8 @@
-import type { Act, ProjectData, ProyectoResumen, Scene } from './types';
+import type { Act, ProjectData, Scene } from './types';
+
+// -----------------------------------------------------------------------------
+// Datos narrativos base (usados al crear proyectos y como datos de ejemplo)
+// -----------------------------------------------------------------------------
 
 export const INITIAL_ACTS: Act[] = [
   {
@@ -56,12 +60,9 @@ export const INITIAL_SCENES: Scene[] = [
   },
 ];
 
-// Default empty map — no demo projects pre-populated
-export const DEFAULT_PROJECTS_MAP: Record<string, ProjectData> = {};
-
-// Demo project data available for "Create example project" and tests
+// Datos de ejemplo disponibles para "Crear Proyecto de Ejemplo" y tests
 export const DEMO_CYBERNIGHTS: ProjectData = {
-  id: 1,
+  id: '1',
   title: 'CyberNights',
   synopsis: 'Un thriller cyberpunk sobre conspiraciones corporativas.',
   acts: INITIAL_ACTS,
@@ -71,7 +72,7 @@ export const DEMO_CYBERNIGHTS: ProjectData = {
 };
 
 export const DEMO_SHADOW_REALM: ProjectData = {
-  id: 2,
+  id: '2',
   title: 'Shadow Realm',
   synopsis: 'Fantasía oscura y supervivencia en el reino de las sombras.',
   acts: [
@@ -84,52 +85,14 @@ export const DEMO_SHADOW_REALM: ProjectData = {
   createdAt: '2026-07-25 11:30:00',
 };
 
-export function seedDemoProjects(): void {
-  const map = getStoredProjectsMap();
-  map['1'] = DEMO_CYBERNIGHTS;
-  map['2'] = DEMO_SHADOW_REALM;
-  localStorage.setItem('guionstudio_projects_map', JSON.stringify(map));
-}
+// -----------------------------------------------------------------------------
+// Preferencias de UI (único uso permitido de localStorage)
+// -----------------------------------------------------------------------------
 
-export function getStoredProjectsMap(): Record<string, ProjectData> {
-  const raw = localStorage.getItem('guionstudio_projects_map');
-  if (raw) {
-    try {
-      const parsed = JSON.parse(raw);
-      if (parsed && typeof parsed === 'object') {
-        return parsed;
-      }
-    } catch (e) {
-      console.error("Error parsing guionstudio_projects_map:", e);
-    }
-  }
-  return {};
-}
+export const HIDDEN_PROJECTS_KEY = 'guionstudio_hidden_projects';
 
-export function saveProjectToStorage(project: ProjectData) {
-  const map = getStoredProjectsMap();
-  map[String(project.id)] = project;
-  localStorage.setItem('guionstudio_projects_map', JSON.stringify(map));
-  localStorage.setItem('guionstudio_active_project', JSON.stringify(project));
-}
-
-export function loadProjectFromStorage(id: string | number): ProjectData | null {
-  const map = getStoredProjectsMap();
-  const idStr = String(id);
-  if (map[idStr]) {
-    return map[idStr];
-  }
-  const keys = Object.keys(map);
-  const matchedKey = keys.find((k) => k === idStr || `proj-${k}` === idStr || k === idStr.replace('proj-', ''));
-  if (matchedKey && map[matchedKey]) {
-    return map[matchedKey];
-  }
-  return null;
-}
-
-// Project Visibility & Deletion Storage Helpers
 export function getHiddenProjectIds(): string[] {
-  const raw = localStorage.getItem('guionstudio_hidden_projects');
+  const raw = localStorage.getItem(HIDDEN_PROJECTS_KEY);
   if (raw) {
     try {
       const parsed = JSON.parse(raw);
@@ -146,7 +109,7 @@ export function hideProjectFromDashboard(id: string | number) {
   const idStr = String(id);
   if (!hidden.includes(idStr)) {
     hidden.push(idStr);
-    localStorage.setItem('guionstudio_hidden_projects', JSON.stringify(hidden));
+    localStorage.setItem(HIDDEN_PROJECTS_KEY, JSON.stringify(hidden));
   }
 }
 
@@ -154,43 +117,5 @@ export function restoreProjectToDashboard(id: string | number) {
   const hidden = getHiddenProjectIds();
   const idStr = String(id);
   const updated = hidden.filter((hId) => hId !== idStr);
-  localStorage.setItem('guionstudio_hidden_projects', JSON.stringify(updated));
-}
-
-export function deleteProjectPermanently(id: string | number) {
-  const map = getStoredProjectsMap();
-  const idStr = String(id);
-  delete map[idStr];
-  const matchedKey = Object.keys(map).find(
-    (k) => k === idStr || `proj-${k}` === idStr || k === idStr.replace('proj-', '')
-  );
-  if (matchedKey) {
-    delete map[matchedKey];
-  }
-  localStorage.setItem('guionstudio_projects_map', JSON.stringify(map));
-  restoreProjectToDashboard(id);
-
-  const activeRaw = localStorage.getItem('guionstudio_active_project');
-  if (activeRaw) {
-    try {
-      const active = JSON.parse(activeRaw);
-      if (active && String(active.id) === idStr) {
-        localStorage.removeItem('guionstudio_active_project');
-      }
-    } catch (e) {}
-  }
-}
-
-export function fetchProyectosOcultos(): ProyectoResumen[] {
-  const map = getStoredProjectsMap();
-  const hiddenIds = getHiddenProjectIds();
-  return Object.values(map)
-    .filter((p) => hiddenIds.includes(String(p.id)))
-    .map((p) => ({
-      id: p.id,
-      titulo: p.title,
-      sinopsis: p.synopsis,
-      ruta_archivo: `/proyectos/${p.title.toLowerCase().replace(/\s+/g, '_')}.json`,
-      creado_en: p.createdAt || p.updatedAt || '2026-07-25 12:00:00',
-    }));
+  localStorage.setItem(HIDDEN_PROJECTS_KEY, JSON.stringify(updated));
 }
