@@ -162,34 +162,45 @@ const schemaV1 = `
 const schemaVersion = 1
 
 // migrate lleva la base desde cualquier esquema anterior hasta schemaVersion.
-// El esquema previo (ids INTEGER, sin escenas) sólo contenía datos de demo, por
-// lo que se descarta y se recrea con el esquema tipado actual.
+// El esquema previo (ids INTEGER, sin escenas) no se destruye: sus tablas se
+// archivan como *_legacy_v0 y sus datos se copian al esquema tipado, de modo
+// que una actualización nunca pierde la información del usuario.
 func migrate(db *sql.DB) error {
 	var version int
 	if err := db.QueryRow(`PRAGMA user_version`).Scan(&version); err != nil {
 		return err
 	}
-	if version < 1 {
-		if err := dropLegacySchema(db); err != nil {
-			return err
-		}
-	}
 	if version >= schemaVersion {
 		return nil
+	}
+
+	legacy, err := detectLegacySchema(db)
+	if err != nil {
+		return err
+	}
+	if legacy {
+		if err := archiveLegacySchema(db); err != nil {
+			return err
+		}
 	}
 	if _, err := db.Exec(schemaV1); err != nil {
 		return err
 	}
-	_, err := db.Exec(fmt.Sprintf(`PRAGMA user_version = %d`, schemaVersion))
+	if legacy {
+		if err := migrateLegacyData(db); err != nil {
+			return err
+		}
+	}
+	_, err = db.Exec(fmt.Sprintf(`PRAGMA user_version = %d`, schemaVersion))
 	return err
 }
 
-// dropLegacySchema elimina las tablas del esquema pre-migraciones si detecta
-// que la tabla proyectos usaba ids INTEGER.
-func dropLegacySchema(db *sql.DB) error {
+// detectLegacySchema informa si existe el esquema pre-migraciones, reconocible
+// porque la tabla proyectos usaba ids INTEGER en lugar de TEXT.
+func detectLegacySchema(db *sql.DB) (bool, error) {
 	rows, err := db.Query(`PRAGMA table_info(proyectos)`)
 	if err != nil {
-		return err
+		return false, err
 	}
 	defer rows.Close()
 
@@ -205,7 +216,7 @@ func dropLegacySchema(db *sql.DB) error {
 			pk        int
 		)
 		if err := rows.Scan(&cid, &name, &ctype, &notnull, &dfltValue, &pk); err != nil {
-			return err
+			return false, err
 		}
 		exists = true
 		if name == "id" && !strings.EqualFold(ctype, "TEXT") {
@@ -213,16 +224,67 @@ func dropLegacySchema(db *sql.DB) error {
 		}
 	}
 	if err := rows.Err(); err != nil {
+		return false, err
+	}
+	return exists && legacyIntID, nil
+}
+
+// archiveLegacySchema renombra las tablas antiguas a *_legacy_v0 para no
+// perder los datos ni chocar con las tablas del esquema nuevo.
+func archiveLegacySchema(db *sql.DB) error {
+	for _, table := range []string{"conexiones", "escenas", "actos", "proyectos"} {
+		ok, err := tableExists(db, table)
+		if err != nil {
+			return err
+		}
+		if !ok {
+			continue
+		}
+		if _, err := db.Exec(fmt.Sprintf(`ALTER TABLE %s RENAME TO %s_legacy_v0`, table, table)); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// migrateLegacyData copia los datos del esquema antiguo al esquema tipado.
+// Los ids numéricos se convierten a TEXT; las columnas que no existían en el
+// esquema antiguo conservan los valores por defecto.
+func migrateLegacyData(db *sql.DB) error {
+	if ok, err := tableExists(db, "proyectos_legacy_v0"); err != nil {
 		return err
+	} else if ok {
+		if _, err := db.Exec(`
+			INSERT OR IGNORE INTO proyectos (id, titulo, sinopsis, ruta_archivo, creado_en, actualizado_en)
+			SELECT CAST(id AS TEXT), titulo, COALESCE(sinopsis, ''), ruta_archivo, creado_en, creado_en
+			FROM proyectos_legacy_v0`); err != nil {
+			return err
+		}
 	}
-	if !exists || !legacyIntID {
-		return nil
+	if ok, err := tableExists(db, "actos_legacy_v0"); err != nil {
+		return err
+	} else if ok {
+		if _, err := db.Exec(`
+			INSERT OR IGNORE INTO actos (id, proyecto_id, orden, nombre, sinopsis, plot_point)
+			SELECT CAST(id AS TEXT), CAST(proyecto_id AS TEXT), orden, titulo, '', ''
+			FROM actos_legacy_v0`); err != nil {
+			return err
+		}
 	}
-	_, err = db.Exec(`DROP TABLE IF EXISTS conexiones;
-		DROP TABLE IF EXISTS escenas;
-		DROP TABLE IF EXISTS actos;
-		DROP TABLE IF EXISTS proyectos;`)
-	return err
+	return nil
+}
+
+// tableExists indica si una tabla existe en el esquema actual.
+func tableExists(db *sql.DB, name string) (bool, error) {
+	var found string
+	err := db.QueryRow(`SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?`, name).Scan(&found)
+	if err == sql.ErrNoRows {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
 // seedDemoData inserta dos proyectos de ejemplo sólo si la base está vacía.

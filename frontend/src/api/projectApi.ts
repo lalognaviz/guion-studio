@@ -1,5 +1,10 @@
 // API tipada de proyectos: fachada de repositorio usada por hooks y páginas.
 import {
+  actualizarActosProyecto,
+  actualizarEntidadesAuxiliares,
+  actualizarEscenasProyecto,
+  actualizarSinopsisProyecto,
+  actualizarTituloProyecto,
   eliminarProyecto,
   fetchDetallesProyecto,
   fetchProyectosRecientes,
@@ -25,19 +30,19 @@ export const projectApi = {
     return migrarProyectosLegacy();
   },
   actualizarTituloProyecto(id: string, titulo: string): Promise<void> {
-    return import('./client').then(m => m.actualizarTituloProyecto(id, titulo));
+    return actualizarTituloProyecto(id, titulo);
   },
   actualizarSinopsisProyecto(id: string, sinopsis: string): Promise<void> {
-    return import('./client').then(m => m.actualizarSinopsisProyecto(id, sinopsis));
+    return actualizarSinopsisProyecto(id, sinopsis);
   },
   actualizarActosProyecto(id: string, actos: any[]): Promise<void> {
-    return import('./client').then(m => m.actualizarActosProyecto(id, actos));
+    return actualizarActosProyecto(id, actos);
   },
   actualizarEscenasProyecto(id: string, escenas: any[]): Promise<void> {
-    return import('./client').then(m => m.actualizarEscenasProyecto(id, escenas));
+    return actualizarEscenasProyecto(id, escenas);
   },
   actualizarEntidadesAuxiliares(id: string, pers: any[], ubi: any[], vars: any[], tl: any[]): Promise<void> {
-    return import('./client').then(m => m.actualizarEntidadesAuxiliares(id, pers, ubi, vars, tl));
+    return actualizarEntidadesAuxiliares(id, pers, ubi, vars, tl);
   },
 };
 

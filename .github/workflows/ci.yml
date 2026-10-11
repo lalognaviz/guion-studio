@@ -61,10 +61,12 @@ jobs:
           sudo apt-get install -y --no-install-recommends libgtk-3-dev libwebkit2gtk-4.1-dev
 
       # 7c. Gate de bindings: generar y verificar que frontend/wailsjs esté sincronizado
+      #     core.fileMode=false: 'wails generate module' marca los runtime como
+      #     ejecutables en Linux (100755) aunque sólo importa el contenido generado.
       - name: Check bindings are in sync
         run: |
           wails generate module
-          if [ -n "$(git status --porcelain -- frontend/wailsjs)" ]; then
+          if [ -n "$(git -c core.fileMode=false status --porcelain -- frontend/wailsjs)" ]; then
             echo "::error::frontend/wailsjs stale — run 'wails generate module' and commit"
             git status --porcelain -- frontend/wailsjs
             git diff -- frontend/wailsjs

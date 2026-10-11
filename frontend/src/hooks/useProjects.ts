@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { DragEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 import { DEMO_CYBERNIGHTS, INITIAL_ACTS, hideProjectFromDashboard } from '../lib/storage';
 import { projectApi } from '../api/projectApi';
@@ -15,6 +15,7 @@ export function useProjects() {
   const [isDragOver, setIsDragOver] = useState<boolean>(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
+  const location = useLocation();
   const { notification, showNotification } = useNotification();
 
   const loadProjectsData = useCallback(() => {
@@ -33,8 +34,10 @@ export function useProjects() {
   }, []);
 
   useEffect(() => {
-    loadProjectsData();
-  }, [loadProjectsData]);
+    if (location.pathname === '/') {
+      loadProjectsData();
+    }
+  }, [location.pathname, loadProjectsData]);
 
   const hideProject = (p: ProyectoResumen) => {
     hideProjectFromDashboard(p.id);

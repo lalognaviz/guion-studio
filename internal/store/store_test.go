@@ -231,7 +231,7 @@ func TestReabrirConservaDatos(t *testing.T) {
 	}
 }
 
-func TestMigracionDescartaEsquemaAntiguo(t *testing.T) {
+func TestMigracionPreservaEsquemaAntiguo(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "legacy.db")
 
 	raw, err := sql.Open("sqlite", "file:"+path)
@@ -267,12 +267,17 @@ func TestMigracionDescartaEsquemaAntiguo(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(projects) != 2 {
-		t.Fatalf("esperaba el seed en la base migrada, hay %d proyectos", len(projects))
+	if len(projects) != 1 {
+		t.Fatalf("esperaba 1 proyecto heredado en la base migrada, hay %d", len(projects))
 	}
-	for _, p := range projects {
-		if p.Titulo == "Viejo Proyecto" {
-			t.Error("el esquema antiguo no debería sobrevivir a la migración")
-		}
+	if projects[0].Titulo != "Viejo Proyecto" || projects[0].ID != "1" {
+		t.Errorf("el proyecto heredado no se migró correctamente: %+v", projects[0])
+	}
+
+	var backup string
+	if err := db.sql.QueryRow(
+		`SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'proyectos_legacy_v0'`,
+	).Scan(&backup); err != nil {
+		t.Errorf("esperaba la tabla de respaldo proyectos_legacy_v0: %v", err)
 	}
 }
