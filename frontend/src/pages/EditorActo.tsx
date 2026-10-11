@@ -7,7 +7,7 @@ import {
 } from '../lib/storage';
 import { getProyectoCached } from '../api/client';
 import { projectApi } from '../api/projectApi';
-import type { Act, Scene, ProjectData } from '../lib/types';
+import type { Act, Scene } from '../lib/types';
 import { MaximizedSceneModal } from '../components/MaximizedSceneModal';
 
 // -------------------------------------------------------------
@@ -19,14 +19,11 @@ export function EditorActo() {
 
   const cached = id ? getProyectoCached(String(id)) : null;
   const [projectId, setProjectId] = useState<string>(cached ? String(cached.id) : id || '');
-  const [projectTitle, setProjectTitle] = useState<string>(cached?.title ?? '');
-  const [projectSynopsis, setProjectSynopsis] = useState<string>(cached?.synopsis ?? '');
+  // title/synopsis not needed for acto editor granular saves
+  void cached?.title;
+  void cached?.synopsis;
   const [acts, setActs] = useState<Act[]>(cached?.acts ?? INITIAL_ACTS);
   const [scenes, setScenes] = useState<Scene[]>(cached?.scenes ?? INITIAL_SCENES);
-  const [personajes, setPersonajes] = useState<import('../lib/entities').Personaje[]>(cached?.personajes ?? []);
-  const [ubicaciones, setUbicaciones] = useState<import('../lib/entities').Ubicacion[]>(cached?.ubicaciones ?? []);
-  const [variables, setVariables] = useState<import('../lib/entities').Variable[]>(cached?.variables ?? []);
-  const [timeline, setTimeline] = useState<import('../lib/entities').EventoTimeline[]>(cached?.timeline ?? []);
 
   const [expandedSceneId, setExpandedSceneId] = useState<string | null>(null);
   const [maximizedScene, setMaximizedScene] = useState<Scene | null>(null);
@@ -41,14 +38,8 @@ export function EditorActo() {
       .then((loaded) => {
         if (cancelled || !loaded) return;
         setProjectId(String(loaded.id));
-        setProjectTitle(loaded.title);
-        if (loaded.synopsis !== undefined) setProjectSynopsis(loaded.synopsis);
         setActs(loaded.acts ?? []);
         setScenes(loaded.scenes ?? []);
-        setPersonajes(loaded.personajes ?? []);
-        setUbicaciones(loaded.ubicaciones ?? []);
-        setVariables(loaded.variables ?? []);
-        setTimeline(loaded.timeline ?? []);
       })
       .catch((e) => console.warn('No se pudo cargar el proyecto:', e));
     return () => {
@@ -80,19 +71,11 @@ export function EditorActo() {
   };
 
   const saveState = (newActs: Act[], newScenes: Scene[]) => {
-    const data: ProjectData = {
-      id: projectId,
-      title: projectTitle,
-      synopsis: projectSynopsis,
-      acts: newActs,
-      scenes: newScenes,
-      personajes,
-      ubicaciones,
-      variables,
-      timeline,
-      updatedAt: new Date().toISOString(),
-    };
-    projectApi.guardar(data).catch((e) => console.error('No se pudo guardar el proyecto:', e));
+    if (!projectId) return;
+    const hasActsChange = JSON.stringify(newActs) !== JSON.stringify(acts);
+    const hasScenesChange = JSON.stringify(newScenes) !== JSON.stringify(scenes);
+    if (hasActsChange) void projectApi.actualizarActosProyecto(projectId, newActs).catch((e: any) => console.error('No se pudo guardar:', e));
+    if (hasScenesChange) void projectApi.actualizarEscenasProyecto(projectId, newScenes).catch((e: any) => console.error('No se pudo guardar:', e));
   };
 
   const updateCurrentAct = (fields: Partial<Act>) => {

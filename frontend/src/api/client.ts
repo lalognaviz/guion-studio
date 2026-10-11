@@ -124,6 +124,80 @@ export async function eliminarProyecto(id: string): Promise<void> {
   restoreProjectToDashboard(id);
 }
 
+// Métodos granulares para proyecto
+export async function actualizarTituloProyecto(id: string, titulo: string): Promise<void> {
+  if (hasWails()) {
+    const { ActualizarTituloProyecto } = await import('../../wailsjs/go/main/App');
+    return ActualizarTituloProyecto(String(id), titulo);
+  }
+  const key = String(id);
+  for (const k of Object.keys(memoryStore)) {
+    if (k === key || memoryStore[k].id === id || memoryStore[k].id === key) {
+      memoryStore[k] = { ...memoryStore[k], title: titulo, updatedAt: new Date().toISOString() };
+      return;
+    }
+  }
+  // Create if not exists
+  memoryStore[key] = { id: key, title: titulo, synopsis: '', acts: [], scenes: [], updatedAt: new Date().toISOString() };
+}
+
+export async function actualizarSinopsisProyecto(id: string, sinopsis: string): Promise<void> {
+  if (hasWails()) {
+    const { ActualizarSinopsisProyecto } = await import('../../wailsjs/go/main/App');
+    return ActualizarSinopsisProyecto(String(id), sinopsis);
+  }
+  const key = String(id);
+  if (memoryStore[key]) {
+    memoryStore[key] = { ...memoryStore[key], synopsis: sinopsis, updatedAt: new Date().toISOString() };
+    return;
+  }
+  // Find project by id regardless of key format
+  for (const k of Object.keys(memoryStore)) {
+    if (k === key || memoryStore[k].id === id || memoryStore[k].id === key) {
+      memoryStore[k] = { ...memoryStore[k], synopsis: sinopsis, updatedAt: new Date().toISOString() };
+      return;
+    }
+  }
+  // If not found, try to update first or create
+  if (Object.keys(memoryStore).length > 0) {
+    const first = Object.keys(memoryStore)[0];
+    memoryStore[first] = { ...memoryStore[first], synopsis: sinopsis, updatedAt: new Date().toISOString() };
+  }
+}
+
+export async function actualizarActosProyecto(id: string, actos: any[]): Promise<void> {
+  if (hasWails()) {
+    const { ActualizarActosProyecto } = await import('../../wailsjs/go/main/App');
+    return ActualizarActosProyecto(String(id), actos as any);
+  }
+  const key = String(id);
+  if (memoryStore[key]) {
+    memoryStore[key] = { ...memoryStore[key], acts: actos, updatedAt: new Date().toISOString() };
+  }
+}
+
+export async function actualizarEscenasProyecto(id: string, escenas: any[]): Promise<void> {
+  if (hasWails()) {
+    const { ActualizarEscenasProyecto } = await import('../../wailsjs/go/main/App');
+    return ActualizarEscenasProyecto(String(id), escenas as any);
+  }
+  const key = String(id);
+  if (memoryStore[key]) {
+    memoryStore[key] = { ...memoryStore[key], scenes: escenas, updatedAt: new Date().toISOString() };
+  }
+}
+
+export async function actualizarEntidadesAuxiliares(id: string, pers: any[], ubi: any[], vars: any[], tl: any[]): Promise<void> {
+  if (hasWails()) {
+    const { ActualizarEntidadesAuxiliares } = await import('../../wailsjs/go/main/App');
+    return ActualizarEntidadesAuxiliares(String(id), pers as any, ubi as any, vars as any, tl as any);
+  }
+  const key = String(id);
+  if (memoryStore[key]) {
+    memoryStore[key] = { ...memoryStore[key], personajes: pers, ubicaciones: ubi, variables: vars, timeline: tl, updatedAt: new Date().toISOString() };
+  }
+}
+
 /**
  * Migración de una sola vez: importa los proyectos que vivían en localStorage
  * (versiones anteriores) a SQLite y limpia las claves antiguas.

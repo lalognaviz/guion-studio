@@ -153,3 +153,48 @@ func (a *App) CambiarEstadoEscena(proyectoID, escenaID, estado string) error {
 	}
 	return scenes.CambiarEstadoEscena(proyectoID, escenaID, estado)
 }
+
+// ActualizarTituloProyecto actualiza solo el título de un proyecto.
+func (a *App) ActualizarTituloProyecto(id, titulo string) error {
+	projects, _, err := a.services()
+	if err != nil {
+		return err
+	}
+	return projects.ActualizarTituloProyecto(id, titulo)
+}
+
+// ActualizarSinopsisProyecto actualiza solo la sinopsis de un proyecto.
+func (a *App) ActualizarSinopsisProyecto(id, sinopsis string) error {
+	projects, _, err := a.services()
+	if err != nil {
+		return err
+	}
+	return projects.ActualizarSinopsisProyecto(id, sinopsis)
+}
+
+// ActualizarActosProyecto reemplaza los actos de un proyecto.
+func (a *App) ActualizarActosProyecto(id string, actos []domain.Acto) error {
+	projects, _, err := a.services()
+	if err != nil {
+		return err
+	}
+	return projects.ActualizarActosProyecto(id, actos)
+}
+
+// ActualizarEscenasProyecto reemplaza las escenas y sus relaciones de un proyecto.
+func (a *App) ActualizarEscenasProyecto(id string, escenas []domain.Escena) error {
+	projects, _, err := a.services()
+	if err != nil {
+		return err
+	}
+	return projects.ActualizarEscenasProyecto(id, escenas)
+}
+
+// ActualizarEntidadesAuxiliares reemplaza las entidades auxiliares de un proyecto.
+func (a *App) ActualizarEntidadesAuxiliares(id string, pers []domain.Personaje, ubi []domain.Ubicacion, vars []domain.Variable, tl []domain.EventoTimeline) error {
+	projects, _, err := a.services()
+	if err != nil {
+		return err
+	}
+	return projects.ActualizarEntidadesAuxiliares(id, pers, ubi, vars, tl)
+}

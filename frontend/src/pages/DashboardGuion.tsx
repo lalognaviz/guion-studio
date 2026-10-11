@@ -8,7 +8,6 @@ import { getProyectoCached } from '../api/client';
 import { useSceneOperations } from '../hooks/useSceneOperations';
 import { useProjectExport } from '../hooks/useProjectExport';
 import { useNotification } from '../hooks/useNotification';
-import { toProjectData } from '../lib/export';
 import { MaximizedSceneModal } from '../components/MaximizedSceneModal';
 import { ProjectHeader } from '../components/ProjectHeader';
 import { ProjectDetailsCard } from '../components/ProjectDetailsCard';
@@ -100,18 +99,33 @@ export function DashboardGuion() {
     newVariables = variables,
     newTimeline = timeline
   ) => {
-    const data = toProjectData({
-      id: projectId,
-      title: newTitle,
-      synopsis: newSynopsis,
-      acts: newActs,
-      scenes: newScenes,
-      personajes: newPersonajes,
-      ubicaciones: newUbicaciones,
-      variables: newVariables,
-      timeline: newTimeline,
-    });
-    projectApi.guardar(data).catch((e) => console.error('No se pudo guardar el proyecto:', e));
+    if (!projectId) return;
+
+    const hasTitleChange = newTitle !== projectTitle;
+    const hasSynopsisChange = newSynopsis !== projectSynopsis;
+    const hasActsChange = JSON.stringify(newActs) !== JSON.stringify(acts);
+    const hasScenesChange = JSON.stringify(newScenes) !== JSON.stringify(scenes);
+    const hasAuxChange = JSON.stringify(newPersonajes) !== JSON.stringify(personajes) ||
+      JSON.stringify(newUbicaciones) !== JSON.stringify(ubicaciones) ||
+      JSON.stringify(newVariables) !== JSON.stringify(variables) ||
+      JSON.stringify(newTimeline) !== JSON.stringify(timeline);
+
+    setProjectTitle(newTitle);
+    setProjectSynopsis(newSynopsis);
+    setActs(newActs);
+    setScenes(newScenes);
+    if (hasAuxChange) {
+      setPersonajes(newPersonajes);
+      setUbicaciones(newUbicaciones);
+      setVariables(newVariables);
+      setTimeline(newTimeline);
+    }
+
+    if (hasTitleChange) void projectApi.actualizarTituloProyecto(projectId, newTitle).catch((e: any) => console.error('No se pudo guardar:', e));
+    if (hasSynopsisChange) void projectApi.actualizarSinopsisProyecto(projectId, newSynopsis).catch((e: any) => console.error('No se pudo guardar:', e));
+    if (hasActsChange) void projectApi.actualizarActosProyecto(projectId, newActs).catch((e: any) => console.error('No se pudo guardar:', e));
+    if (hasScenesChange) void projectApi.actualizarEscenasProyecto(projectId, newScenes).catch((e: any) => console.error('No se pudo guardar:', e));
+    if (hasAuxChange) void projectApi.actualizarEntidadesAuxiliares(projectId, newPersonajes, newUbicaciones, newVariables, newTimeline).catch((e: any) => console.error('No se pudo guardar:', e));
   };
 
   const { handleAddScene, handleUpdateScene, handleDeleteScene, handleMoveScene } =

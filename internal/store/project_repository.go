@@ -335,6 +335,155 @@ func (r *ProjectRepository) GuardarProyecto(p domain.Proyecto) error {
 	return tx.Commit()
 }
 
+// UpdateProjectTitle actualiza solo el título del proyecto.
+func (r *ProjectRepository) UpdateProjectTitle(id, titulo string) error {
+	tx, err := r.sql.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	_, err = tx.Exec(`UPDATE proyectos SET titulo = ?, actualizado_en = ? WHERE id = ?`, titulo, time.Now().Format("2006-01-02 15:04:05"), id)
+	if err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+// UpdateProjectSynopsis actualiza solo la sinopsis del proyecto.
+func (r *ProjectRepository) UpdateProjectSynopsis(id, sinopsis string) error {
+	tx, err := r.sql.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	_, err = tx.Exec(`UPDATE proyectos SET sinopsis = ?, actualizado_en = ? WHERE id = ?`, sinopsis, time.Now().Format("2006-01-02 15:04:05"), id)
+	if err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+// UpdateProjectActs reemplaza los actos de un proyecto.
+func (r *ProjectRepository) UpdateProjectActs(id string, acts []domain.Acto) error {
+	tx, err := r.sql.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if _, err := tx.Exec(`DELETE FROM actos WHERE proyecto_id = ?`, id); err != nil {
+		return err
+	}
+	for _, a := range acts {
+		if _, err := tx.Exec(`
+			INSERT INTO actos (id, proyecto_id, orden, nombre, sinopsis, plot_point)
+			VALUES (?, ?, ?, ?, ?, ?)`,
+			a.ID, id, a.Orden, a.Nombre, a.Sinopsis, a.PlotPoint); err != nil {
+			return err
+		}
+	}
+	if _, err := tx.Exec(`UPDATE proyectos SET actualizado_en = ? WHERE id = ?`, time.Now().Format("2006-01-02 15:04:05"), id); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+// UpdateProjectScenes reemplaza las escenas, conexiones y opciones de un proyecto.
+func (r *ProjectRepository) UpdateProjectScenes(id string, scenes []domain.Escena) error {
+	tx, err := r.sql.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if _, err := tx.Exec(`DELETE FROM opciones WHERE proyecto_id = ?`, id); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(`DELETE FROM conexiones WHERE proyecto_id = ?`, id); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(`DELETE FROM escenas WHERE proyecto_id = ?`, id); err != nil {
+		return err
+	}
+	for _, s := range scenes {
+		if _, err := tx.Exec(`
+			INSERT INTO escenas (id, proyecto_id, acto_id, orden, titulo, estado, descripcion,
+				escaleta, diseno_nivel, sonido, texto_juego, dialogos)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			s.ID, id, s.ActoID, s.Orden, s.Titulo, s.Estado, s.Descripcion,
+			s.Escaleta, s.DisenoNivel, s.Sonido, s.TextoJuego, s.Dialogos); err != nil {
+			return err
+		}
+		for _, c := range s.Conexiones {
+			if _, err := tx.Exec(`
+				INSERT INTO conexiones (id, proyecto_id, escena_origen_id, escena_destino_id, etiqueta)
+				VALUES (?, ?, ?, ?, ?)`,
+				c.ID, id, s.ID, c.TargetSceneID, c.Label); err != nil {
+				return err
+			}
+		}
+		for _, o := range s.Opciones {
+			if _, err := tx.Exec(`
+				INSERT INTO opciones (id, proyecto_id, escena_id, target_scene_id, texto, orden, condiciones, consecuencias)
+				VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+				o.ID, id, s.ID, o.TargetSceneID, o.Texto, o.Orden, o.Condiciones, o.Consecuencias); err != nil {
+				return err
+			}
+		}
+	}
+	if _, err := tx.Exec(`UPDATE proyectos SET actualizado_en = ? WHERE id = ?`, time.Now().Format("2006-01-02 15:04:05"), id); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+// UpdateProjectEntidadesAux reemplaza entidades auxiliares del proyecto.
+func (r *ProjectRepository) UpdateProjectEntidadesAux(id string, pers []domain.Personaje, ubi []domain.Ubicacion, vars []domain.Variable, tl []domain.EventoTimeline) error {
+	tx, err := r.sql.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if _, err := tx.Exec(`DELETE FROM timeline WHERE proyecto_id = ?`, id); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(`DELETE FROM variables WHERE proyecto_id = ?`, id); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(`DELETE FROM ubicaciones WHERE proyecto_id = ?`, id); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(`DELETE FROM personajes WHERE proyecto_id = ?`, id); err != nil {
+		return err
+	}
+	for _, pe := range pers {
+		if _, err := tx.Exec(`INSERT INTO personajes (id, proyecto_id, nombre, descripcion, personalidad, apariencia, notas) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+			pe.ID, id, pe.Nombre, pe.Descripcion, pe.Personalidad, pe.Apariencia, pe.Notas); err != nil {
+			return err
+		}
+	}
+	for _, u := range ubi {
+		if _, err := tx.Exec(`INSERT INTO ubicaciones (id, proyecto_id, nombre, descripcion, notas) VALUES (?, ?, ?, ?, ?)`,
+			u.ID, id, u.Nombre, u.Descripcion, u.Notas); err != nil {
+			return err
+		}
+	}
+	for _, v := range vars {
+		if _, err := tx.Exec(`INSERT INTO variables (id, proyecto_id, nombre, valor, tipo, descripcion) VALUES (?, ?, ?, ?, ?, ?)`,
+			v.ID, id, v.Nombre, v.Valor, v.Tipo, v.Descripcion); err != nil {
+			return err
+		}
+	}
+	for _, t := range tl {
+		if _, err := tx.Exec(`INSERT INTO timeline (id, proyecto_id, orden, titulo, descripcion, escena_id, fecha) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+			t.ID, id, t.Orden, t.Titulo, t.Descripcion, t.EscenaID, t.Fecha); err != nil {
+			return err
+		}
+	}
+	if _, err := tx.Exec(`UPDATE proyectos SET actualizado_en = ? WHERE id = ?`, time.Now().Format("2006-01-02 15:04:05"), id); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
 // EliminarProyecto borra el proyecto y todo su grafo en cascada.
 func (r *ProjectRepository) EliminarProyecto(id string) error {
 	_, err := r.sql.Exec(`DELETE FROM proyectos WHERE id = ?`, id)
