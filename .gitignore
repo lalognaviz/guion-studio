@@ -34,3 +34,8 @@ Thumbs.db
 *.njsproj
 *.sln
 *.sw?
+
+#environment files
+*.env
+plan_refactor_guionstudio.md
+AGENTS.md

@@ -1,25 +1,14 @@
-// Types for IPC Rust Models
+// Tipos del contrato IPC (espejo de internal/store/store.go)
 export type ProyectoResumen = {
-  id: number | string;
+  id: string;
   titulo: string;
   ruta_archivo?: string | null;
   sinopsis?: string;
   creado_en: string;
 };
 
-export type ActoResumen = {
-  id: number;
-  titulo: string;
-  orden: number;
-};
-
-export type ProyectoDetalle = {
-  id: number;
-  titulo: string;
-  ruta_archivo?: string | null;
-  sinopsis: string;
-  actos: ActoResumen[];
-};
+// Exportar entidades auxiliares
+export * from './entities';
 
 // Types for Narrative Board
 export type SceneConnection = {
@@ -41,6 +30,7 @@ export type Scene = {
   texto_juego?: string;
   dialogos?: string;
   conexiones?: SceneConnection[];
+  opciones?: import('./entities').Opcion[];
 };
 
 export type Act = {
@@ -52,11 +42,15 @@ export type Act = {
 };
 
 export type ProjectData = {
-  id: string | number;
+  id: string;
   title: string;
   synopsis?: string;
   acts: Act[];
   scenes: Scene[];
   updatedAt: string;
   createdAt?: string;
+  personajes?: import('./entities').Personaje[];
+  ubicaciones?: import('./entities').Ubicacion[];
+  variables?: import('./entities').Variable[];
+  timeline?: import('./entities').EventoTimeline[];
 };

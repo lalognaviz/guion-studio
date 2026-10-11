@@ -1,6 +1,7 @@
 import { useState } from 'react';
 
 import type { Act, Scene, SceneConnection } from '../lib/types';
+import type { Opcion } from '../lib/entities';
 
 // -------------------------------------------------------------
 // MAXIMIZED SCENE MODAL COMPONENT
@@ -22,6 +23,10 @@ export function MaximizedSceneModal({
   const [newConnTarget, setNewConnTarget] = useState<string>('');
   const [newConnLabel, setNewConnLabel] = useState<string>('');
 
+  const [newOptTarget, setNewOptTarget] = useState<string>('');
+  const [newOptTexto, setNewOptTexto] = useState<string>('');
+  const [newOptCond, setNewOptCond] = useState<string>('');
+
   const handleAddConnection = () => {
     if (!newConnTarget) return;
     const newConn: SceneConnection = {
@@ -41,6 +46,32 @@ export function MaximizedSceneModal({
     setDraft({
       ...draft,
       conexiones: (draft.conexiones || []).filter((c) => c.id !== connId),
+    });
+  };
+
+  const handleAddOption = () => {
+    if (!newOptTexto.trim()) return;
+    const newOpt: Opcion = {
+      id: `opt-${Date.now()}`,
+      escena_id: draft.id,
+      target_scene_id: newOptTarget || undefined,
+      texto: newOptTexto.trim(),
+      orden: (draft.opciones || []).length + 1,
+      condiciones: newOptCond.trim() || undefined,
+    };
+    setDraft({
+      ...draft,
+      opciones: [...((draft.opciones as any[]) || []), newOpt],
+    });
+    setNewOptTarget('');
+    setNewOptTexto('');
+    setNewOptCond('');
+  };
+
+  const handleRemoveOption = (optId: string) => {
+    setDraft({
+      ...draft,
+      opciones: ((draft.opciones as any[]) || []).filter((o: any) => o.id !== optId),
     });
   };
 
@@ -236,7 +267,114 @@ export function MaximizedSceneModal({
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 bg-brand-bg border-t border-[#3B3E47] flex items-center justify-end gap-3">
+
+          {/* === OPCIONES (CHOICES) === */}
+          <div className="p-4 bg-brand-surface/80 border border-[#3B3E47] rounded-xl">
+            <h4 className="text-xs font-bold uppercase text-slate-400 mb-3 flex items-center gap-2">
+              <span>💡</span> Opciones Narrativas (Choices)
+            </h4>
+
+            <div className="space-y-1.5 mb-4">
+              {(draft.opciones || []).length === 0 ? (
+                <p className="text-xs text-slate-500 italic py-2">
+                  Sin opciones. Define elecciones para ramificar la narrativa.
+                </p>
+              ) : (
+                ((draft.opciones as any[]) || []).map((opt: any) => {
+                  const targetScene = allScenes.find((s) => s.id === opt.target_scene_id);
+                  const targetAct = targetScene
+                    ? allActs.find((a) => a.id === targetScene.act_id)
+                    : null;
+                  return (
+                    <div
+                      key={opt.id}
+                      className="flex items-center justify-between bg-brand-bg/60 px-3 py-2 rounded-lg border border-[#3B3E47] text-xs group hover:border-slate-700 transition"
+                    >
+                      <span className="text-slate-200 flex items-center gap-1.5 flex-wrap">
+                        <span className="text-violet-300 font-medium">{opt.texto}</span>
+                        {opt.target_scene_id && (
+                          <>
+                            <span className="text-slate-500">➔</span>
+                            <span className="text-indigo-300 font-semibold">
+                              {targetScene?.titulo || '⚠️ Escena eliminada'}
+                            </span>
+                            {targetAct && (
+                              <span className="text-slate-600 text-[10px]">(Acto {targetAct.orden})</span>
+                            )}
+                          </>
+                        )}
+                        {opt.condiciones && (
+                          <span className="text-slate-500 text-[10px]">(cond: {opt.condiciones})</span>
+                        )}
+                      </span>
+                      <button
+                        onClick={() => handleRemoveOption(opt.id)}
+                        className="text-slate-500 hover:text-rose-400 transition px-1"
+                        title="Eliminar opción"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            <div className="flex flex-col gap-3">
+              <div className="flex-1">
+                <label className="block text-[10px] text-slate-500 mb-1">Texto de la opción:</label>
+                <input
+                  type="text"
+                  value={newOptTexto}
+                  onChange={(e) => setNewOptTexto(e.target.value)}
+                  placeholder='Ej: "Explorar el pasadizo oscuro"'
+                  className="w-full bg-brand-bg text-slate-200 text-xs border border-slate-700 rounded-lg px-2 py-1.5 focus:outline-none focus:border-[#FD7014]"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[10px] text-slate-500 mb-1">Escena destino (opcional):</label>
+                  <select
+                    value={newOptTarget}
+                    onChange={(e) => setNewOptTarget(e.target.value)}
+                    className="w-full bg-brand-bg text-slate-200 text-xs border border-slate-700 rounded-lg px-2 py-1.5 focus:outline-none focus:border-[#FD7014]"
+                  >
+                    <option value="">— Ninguno (fin de rama) —</option>
+                    {allScenes
+                      .filter((s) => s.id !== draft.id)
+                      .map((s) => {
+                        const act = allActs.find((a) => a.id === s.act_id);
+                        return (
+                          <option key={s.id} value={s.id}>
+                            {s.titulo} ({act ? `Acto ${act.orden}` : 'Sin acto'})
+                          </option>
+                        );
+                      })}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[10px] text-slate-500 mb-1">Condiciones (opcional):</label>
+                  <input
+                    type="text"
+                    value={newOptCond}
+                    onChange={(e) => setNewOptCond(e.target.value)}
+                    placeholder='Ej: variable="x" >= 1'
+                    className="w-full bg-brand-bg text-slate-200 text-xs border border-slate-700 rounded-lg px-2 py-1.5 focus:outline-none focus:border-[#FD7014]"
+                  />
+                </div>
+              </div>
+              <button
+                onClick={handleAddOption}
+                disabled={!newOptTexto.trim()}
+                className="px-3 py-1.5 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white text-xs font-bold rounded-lg shadow disabled:opacity-40 disabled:cursor-not-allowed transition w-fit"
+              >
+                Añadir Opción
+              </button>
+            </div>
+          </div>
+
+
+                <div className="px-6 py-4 bg-brand-bg border-t border-[#3B3E47] flex items-center justify-end gap-3">
           <button
             onClick={onClose}
             className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-xl border border-slate-700"
